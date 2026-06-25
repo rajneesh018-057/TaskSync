@@ -32,9 +32,12 @@ interface DashboardViewProps {
   historyTab: "completed" | "deleted";
   setHistoryTab: React.Dispatch<React.SetStateAction<"completed" | "deleted">>;
   currentRisk: { level: string; color: string };
+  userName?: string;
+  onClearAllDeletedTasks: () => void;
 }
 
 export default function DashboardView({
+  userName,
   darkCalmMode,
   aiAdvice,
   fetchAiAdvice,
@@ -53,8 +56,16 @@ export default function DashboardView({
   deletedTasks,
   historyTab,
   setHistoryTab,
-  currentRisk
+  currentRisk,
+  onClearAllDeletedTasks
 }: DashboardViewProps) {
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
   return (
     <div className="space-y-6">
       
@@ -108,7 +119,13 @@ export default function DashboardView({
             <div className="flex items-center gap-2 text-xs">
               <button 
                 onClick={() => {
-                  handleDirectAdd("Review Q3 Financials");
+                  const suggestion = aiAdvice.suggestion || "";
+                  const doubleQuotesMatch = suggestion.match(/"([^"]+)"/);
+                  const singleQuotesMatch = suggestion.match(/'([^']+)'/);
+                  const parsedTask = (doubleQuotesMatch && doubleQuotesMatch[1]) || 
+                                     (singleQuotesMatch && singleQuotesMatch[1]) || 
+                                     "Optimize Schedule Block";
+                  handleDirectAdd(parsedTask);
                 }}
                 className="px-4 py-1.5 bg-[#4c51bb] hover:bg-[#373b97] active:scale-95 text-white rounded-lg font-sans font-medium transition-all"
               >
@@ -130,7 +147,7 @@ export default function DashboardView({
       <section className="pt-2 pb-4 max-w-[1200px] mx-auto text-left">
         <div className="flex flex-col space-y-2">
           <h2 className="font-display text-4xl font-extrabold text-[#010047] dark:text-white tracking-tight">
-            Good morning, Alex.
+            {getGreeting()}, {userName ? userName.split(" ")[0] : "User"}.
           </h2>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3 flex-wrap">
@@ -357,7 +374,17 @@ export default function DashboardView({
               </div>
 
               {/* Tab switches */}
-              <div className="flex bg-[#f5f2fb] dark:bg-white/5 p-1 rounded-xl">
+              <div className="flex items-center gap-3">
+                {historyTab === "deleted" && deletedTasks.length > 0 && (
+                  <button
+                    onClick={onClearAllDeletedTasks}
+                    className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-lg text-[10px] font-mono uppercase tracking-wider font-bold transition-all cursor-pointer"
+                    title="Permanently empty deleted tasks log"
+                  >
+                    Empty Trash
+                  </button>
+                )}
+                <div className="flex bg-[#f5f2fb] dark:bg-white/5 p-1 rounded-xl">
                 <button
                   onClick={() => setHistoryTab("completed")}
                   className={`px-4 py-1.5 rounded-lg text-xs font-semibold font-sans transition-all ${
@@ -380,6 +407,7 @@ export default function DashboardView({
                 </button>
               </div>
             </div>
+          </div>
 
             {/* History Content */}
             {historyTab === "completed" ? (

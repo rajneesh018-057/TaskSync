@@ -1,4 +1,3 @@
-import React from "react";
 import { 
   LayoutDashboard, 
   Inbox, 
@@ -6,23 +5,26 @@ import {
   Target, 
   TrendingUp, 
   Settings,
-  Sparkles
+  Sparkles,
+  LogOut
 } from "lucide-react";
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   userName: string;
-  isPro: boolean;
   tasksCount: number;
+  onLogout?: () => void;
+  profilePic?: string | null;
 }
 
 export default function Sidebar({ 
   activeTab, 
   setActiveTab, 
   userName, 
-  isPro,
-  tasksCount 
+  tasksCount,
+  onLogout,
+  profilePic
 }: SidebarProps) {
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -107,28 +109,31 @@ export default function Sidebar({
 
       {/* Profile Footer */}
       <div className="mt-auto">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-[#f5f2fb] border border-[#efecf6]">
-          <div className="relative">
-            <img
-              className="w-10 h-10 rounded-full object-cover border border-[#c7c5d4]"
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-              alt="Alex Chen Profile"
-              referrerPolicy="no-referrer"
-            />
-            {isPro && (
-              <span className="absolute -bottom-1 -right-1 w-4.5 h-4.5 bg-[#5054b1] text-white rounded-full border-2 border-white flex items-center justify-center text-[8px] font-mono font-bold select-none">
-                ★
-              </span>
-            )}
+        <div className="flex items-center justify-between p-3 rounded-xl bg-[#f5f2fb] border border-[#efecf6] gap-2">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="relative shrink-0">
+              <img
+                className="w-10 h-10 rounded-full object-cover border border-[#c7c5d4]"
+                src={profilePic || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"}
+                alt="Profile Avatar"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="overflow-hidden text-left">
+              <p className="text-[13px] font-sans font-bold text-[#010047] truncate">
+                {userName || "Guest User"}
+              </p>
+            </div>
           </div>
-          <div className="overflow-hidden">
-            <p className="text-[13px] font-sans font-bold text-[#010047] truncate">
-              {userName}
-            </p>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-[#72749b] font-bold leading-none">
-              {isPro ? "Pro Account" : "Free Account"}
-            </p>
-          </div>
+          {onLogout && (
+            <button 
+              onClick={onLogout}
+              className="p-2 hover:bg-black/10 rounded-lg text-rose-600 hover:text-rose-700 transition-all shrink-0 cursor-pointer"
+              title="Sign Out Account"
+            >
+              <LogOut className="w-4.5 h-4.5" />
+            </button>
+          )}
         </div>
       </div>
     </aside>

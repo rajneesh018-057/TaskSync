@@ -15,6 +15,7 @@ import GoalsView from "./components/GoalsView";
 import InsightsView from "./components/InsightsView";
 import SettingsView from "./components/SettingsView";
 import CaptureModal from "./components/CaptureModal";
+import AuthView from "./components/AuthView";
 import { Task, Goal, ScheduleItem, DailyInsight } from "./types";
 import { initialTasks, initialGoals, initialSchedule, initialInsights } from "./data";
 import { formatTime, calculateRiskLevel } from "./utils";
@@ -22,13 +23,48 @@ import { formatTime, calculateRiskLevel } from "./utils";
 export default function App() {
   // Navigation & User Context
   const [activeTab, setActiveTab] = useState<string>("dashboard");
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem("lifesaver_token");
+  });
+  const [user, setUser] = useState<{ id: string; email: string; userName: string } | null>(() => {
+    const saved = localStorage.getItem("lifesaver_user");
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch (_) {
+      return null;
+    }
+  });
   const [userName, setUserName] = useState<string>(() => {
+    const savedUser = localStorage.getItem("lifesaver_user");
+    if (savedUser) {
+      try {
+        return JSON.parse(savedUser).userName || "Alex Chen";
+      } catch (_) {}
+    }
     return localStorage.getItem("lifesaver_username") || "Alex Chen";
   });
-  const [isPro, setIsPro] = useState<boolean>(true);
+  const [userEmail, setUserEmail] = useState<string>(() => {
+    const savedUser = localStorage.getItem("lifesaver_user");
+    if (savedUser) {
+      try {
+        return JSON.parse(savedUser).email || "";
+      } catch (_) {}
+    }
+    return "";
+  });
+  const [profilePic, setProfilePic] = useState<string>(() => {
+    const savedUser = localStorage.getItem("lifesaver_user");
+    if (savedUser) {
+      try {
+        return JSON.parse(savedUser).profilePic || "";
+      } catch (_) {}
+    }
+    return "";
+  });
   const [darkCalmMode, setDarkCalmMode] = useState<boolean>(() => {
     return localStorage.getItem("lifesaver_dark_calm") === "true";
   });
+  const [initialLoadComplete, setInitialLoadComplete] = useState<boolean>(false);
 
   // Core App State (hydrated from localStorage or default static templates)
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -91,9 +127,22 @@ export default function App() {
     alignmentScore: number;
     loading: boolean;
   }>({
-    suggestion: 'AI suggests assigning "Review Q3 Financials" to your 2:00 PM deep work block.',
-    predictedLoad: "High Peak Cognitive Load",
-    alignmentScore: 92,
+    suggestion: 'AI suggests planning your next high-priority task block to align with active goals.',
+    predictedLoad: "Medium Cognitive Load",
+    alignmentScore: 85,
+    loading: false
+  });
+
+  // Dynamic Cognitive Telemetry Insights State
+  const [cognitiveInsights, setCognitiveInsights] = useState<{
+    focusDiagnostic: string;
+    restAssessment: string;
+    cognitiveCapacity: number;
+    loading: boolean;
+  }>({
+    focusDiagnostic: "Your active cognitive alignment indicates optimal deep focus stamina during morning blocks of mid-week, matching steady adrenaline indicators securely.",
+    restAssessment: "Buffer intervals remained steady at 35 mins. Maintaining a 1:5 ratio of active rest to deep concentration is highly recommended to eliminate executive burnouts.",
+    cognitiveCapacity: 88,
     loading: false
   });
 
@@ -110,6 +159,8 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(false);
   const [focusStreak, setFocusStreak] = useState<number>(3);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastFetchTimeRef = useRef<number>(0);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Capture Task Modal State
   const [isCaptureModalOpen, setIsCaptureModalOpen] = useState(false);
@@ -125,7 +176,7 @@ export default function App() {
 
   // Notifications State for the Bell
   const [notifications, setNotifications] = useState<Array<{ id: string; text: string; read: boolean }>>([
-    { id: "noti-1", text: "Predictive Schedule Alignment available for Review Q3 Financials.", read: false },
+    { id: "noti-1", text: "Predictive Schedule Alignment suggestions are ready for your tasks.", read: false },
     { id: "noti-2", text: "Attention: 2 Deep Work block configurations were automatically consolidated.", read: true },
   ]);
   const [showNotificationsMenu, setShowNotificationsMenu] = useState(false);
@@ -134,12 +185,86 @@ export default function App() {
   const [lastSyncTime, setLastSyncTime] = useState<string>("Just now");
 
   // AI Scheduling Command Center States
-  const [isCalendarConnected, setIsCalendarConnected] = useState<boolean>(false);
-  const [connectedSources, setConnectedSources] = useState<string[]>([]);
+  const [isCalendarConnected, setIsCalendarConnected] = useState<boolean>(() => {
+    return localStorage.getItem("lifesaver_calendar_connected") === "true";
+  });
+  const [connectedSources, setConnectedSources] = useState<string[]>(() => {
+    const saved = localStorage.getItem("lifesaver_connected_sources");
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch (_) {
+      return [];
+    }
+  });
   const [plannerView, setPlannerView] = useState<"day" | "week" | "month">("week");
   const [appliedOptimizations, setAppliedOptimizations] = useState<string[]>([]);
   const [showConnectionMenu, setShowConnectionMenu] = useState<boolean>(false);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [googleEvents, setGoogleEvents] = useState<any[]>([]);
+
+  // Local storage synchronization for calendar status
+  useEffect(() => {
+    localStorage.setItem("lifesaver_calendar_connected", String(isCalendarConnected));
+  }, [isCalendarConnected]);
+
+  useEffect(() => {
+    localStorage.setItem("lifesaver_connected_sources", JSON.stringify(connectedSources));
+  }, [connectedSources]);
+
+  // Capture Google OAuth callbacks from redirect query parameters
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get("token");
+    const urlId = params.get("id");
+    const urlEmail = params.get("email");
+    const urlUserName = params.get("userName");
+    const urlProfilePic = params.get("profilePic");
+    const calendarConnected = params.get("calendarConnected");
+
+    if (urlToken && urlId && urlEmail && urlUserName) {
+      handleAuthSuccess(urlToken, { 
+        id: urlId, 
+        email: urlEmail, 
+        userName: urlUserName, 
+        profilePic: urlProfilePic || "" 
+      });
+      window.history.replaceState({}, document.title, "/");
+    } else if (calendarConnected === "true" || window.location.pathname === "/planner") {
+      setIsCalendarConnected(true);
+      setConnectedSources((prev) => (prev.includes("google") ? prev : [...prev, "google"]));
+      setActiveTab("planner");
+      window.history.replaceState({}, document.title, "/");
+    }
+  }, []);
+
+  // Fetch Google Calendar events when connected
+  useEffect(() => {
+    if (!token || !isCalendarConnected) {
+      setGoogleEvents([]);
+      return;
+    }
+
+    const fetchGoogleEvents = async () => {
+      try {
+        const res = await fetch("/api/calendar/events", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setGoogleEvents(data);
+        } else {
+          console.warn("Failed to fetch Google Calendar events");
+        }
+      } catch (err) {
+        console.error("Error fetching Google Calendar events:", err);
+      }
+    };
+
+    fetchGoogleEvents();
+    // Refresh events every 5 minutes
+    const interval = setInterval(fetchGoogleEvents, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [token, isCalendarConnected]);
 
   // Local storage synchronization
   useEffect(() => {
@@ -171,34 +296,254 @@ export default function App() {
     }
   }, [darkCalmMode]);
 
-  // Request alignment counselor recommendation on load / task edit
-  const fetchAiAdvice = async () => {
-    setAiAdvice(prev => ({ ...prev, loading: true }));
-    try {
-      const response = await fetch("/api/suggest-alignment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tasks: tasks.filter(t => !t.completed),
-          goals: goals,
-          timeOfDay: new Date().getHours() < 12 ? "morning" : "afternoon"
-        })
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setAiAdvice({
-          suggestion: data.suggestion,
-          predictedLoad: data.predictedLoad,
-          alignmentScore: data.alignmentScore,
-          loading: false
+  // Load initial data from database when token is available
+  useEffect(() => {
+    if (!token) {
+      setInitialLoadComplete(false);
+      return;
+    }
+
+    const loadData = async () => {
+      try {
+        // Fetch Profile Info
+        const profileRes = await fetch("/api/auth/me", {
+          headers: { "Authorization": `Bearer ${token}` }
         });
+        if (profileRes.ok) {
+          const dbProfile = await profileRes.json();
+          setUserName(dbProfile.userName);
+          setUserEmail(dbProfile.email);
+          setProfilePic(dbProfile.profilePic || "");
+          const updatedUser = { ...user, userName: dbProfile.userName, email: dbProfile.email, profilePic: dbProfile.profilePic };
+          setUser(updatedUser as any);
+          localStorage.setItem("lifesaver_user", JSON.stringify(updatedUser));
+          localStorage.setItem("lifesaver_username", dbProfile.userName);
+        }
+
+        // Fetch Tasks
+        const tasksRes = await fetch("/api/tasks", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const dbTasks = tasksRes.ok ? await tasksRes.json() : [];
+
+        // Fetch Goals
+        const goalsRes = await fetch("/api/goals", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const dbGoals = goalsRes.ok ? await goalsRes.json() : [];
+
+        // Fetch Schedule
+        const scheduleRes = await fetch("/api/schedule", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const dbSchedule = scheduleRes.ok ? await scheduleRes.json() : [];
+
+        setTasks(dbTasks);
+        setGoals(dbGoals);
+        setSchedule(dbSchedule);
+        setInitialLoadComplete(true);
+      } catch (err) {
+        console.error("Failed to load user data from database:", err);
+        setInitialLoadComplete(true);
+      }
+    };
+
+    loadData();
+  }, [token]);
+
+  // Synchronize tasks to backend database
+  useEffect(() => {
+    if (!token || !initialLoadComplete) return;
+
+    const syncTasks = async () => {
+      try {
+        const res = await fetch("/api/tasks/sync", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ tasks })
+        });
+        if (res.ok) {
+          setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        }
+      } catch (e) {
+        console.error("Failed to sync tasks:", e);
+      }
+    };
+
+    const timeoutId = setTimeout(syncTasks, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [tasks, token, initialLoadComplete]);
+
+  // Synchronize goals to backend database
+  useEffect(() => {
+    if (!token || !initialLoadComplete) return;
+
+    const syncGoals = async () => {
+      try {
+        await fetch("/api/goals/sync", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ goals })
+        });
+      } catch (e) {
+        console.error("Failed to sync goals:", e);
+      }
+    };
+
+    const timeoutId = setTimeout(syncGoals, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [goals, token, initialLoadComplete]);
+
+  // Synchronize schedule items to backend database
+  useEffect(() => {
+    if (!token || !initialLoadComplete) return;
+
+    const syncSchedule = async () => {
+      try {
+        await fetch("/api/schedule/sync", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ schedule })
+        });
+      } catch (e) {
+        console.error("Failed to sync schedule:", e);
+      }
+    };
+
+    const timeoutId = setTimeout(syncSchedule, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [schedule, token, initialLoadComplete]);
+
+  // Authentication handlers
+  const handleAuthSuccess = (newToken: string, authUser: { id: string; email: string; userName: string; profilePic?: string | null }) => {
+    localStorage.setItem("lifesaver_token", newToken);
+    localStorage.setItem("lifesaver_user", JSON.stringify(authUser));
+    localStorage.setItem("lifesaver_username", authUser.userName);
+    
+    // Clear local mockup/caches
+    localStorage.removeItem("lifesaver_tasks");
+    localStorage.removeItem("lifesaver_goals");
+    localStorage.removeItem("lifesaver_schedule");
+    localStorage.removeItem("lifesaver_deleted_tasks");
+    
+    setToken(newToken);
+    setUser(authUser as any);
+    setUserName(authUser.userName);
+    setUserEmail(authUser.email);
+    setProfilePic(authUser.profilePic || "");
+    setTasks([]);
+    setGoals([]);
+    setSchedule([]);
+    setDeletedTasks([]);
+    setInitialLoadComplete(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("lifesaver_token");
+    localStorage.removeItem("lifesaver_user");
+    localStorage.removeItem("lifesaver_username");
+    localStorage.removeItem("lifesaver_tasks");
+    localStorage.removeItem("lifesaver_goals");
+    localStorage.removeItem("lifesaver_schedule");
+    localStorage.removeItem("lifesaver_deleted_tasks");
+    
+    setToken(null);
+    setUser(null);
+    setUserName("Alex Chen");
+    setUserEmail("");
+    setProfilePic("");
+    setTasks(initialTasks);
+    setGoals(initialGoals);
+    setSchedule(initialSchedule);
+    setDeletedTasks([]);
+    setInitialLoadComplete(false);
+  };
+
+  const handleUpdateProfile = async (name: string, email: string, picUrl: string) => {
+    if (!token) return { success: false, message: "Not authenticated" };
+    try {
+      const res = await fetch("/api/auth/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ userName: name, email, profilePic: picUrl })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const updatedUser = { ...user, userName: data.userName, email: data.email, profilePic: data.profilePic };
+        setUser(updatedUser as any);
+        setUserName(data.userName);
+        setUserEmail(data.email);
+        setProfilePic(data.profilePic || "");
+        localStorage.setItem("lifesaver_user", JSON.stringify(updatedUser));
+        localStorage.setItem("lifesaver_username", data.userName);
+        return { success: true, message: "Profile settings updated successfully!" };
       } else {
-        throw new Error("Failed to reach counseling API");
+        return { success: false, message: data.error || "Failed to update profile settings." };
       }
     } catch (err) {
-      console.warn("AI counsel fallback activated:", err);
-      // fallback
-      setTimeout(() => {
+      console.error("Update profile error:", err);
+      return { success: false, message: "Failed to connect to server." };
+    }
+  };
+
+  const handleClearAllDeletedTasks = () => {
+    setDeletedTasks([]);
+    localStorage.removeItem("lifesaver_deleted_tasks");
+  };
+
+  // Request alignment counselor recommendation on load / task edit
+  const fetchAiAdvice = () => {
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+
+    const now = Date.now();
+    const minInterval = 10000; // 10 seconds limit between calls to Gemini API
+    const timeSinceLastFetch = now - lastFetchTimeRef.current;
+
+    const performFetch = async () => {
+      lastFetchTimeRef.current = Date.now();
+      setAiAdvice(prev => ({ ...prev, loading: true }));
+      try {
+        const headers: any = { "Content-Type": "application/json" };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const response = await fetch("/api/suggest-alignment", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            tasks: tasks.filter(t => !t.completed),
+            goals: goals,
+            timeOfDay: new Date().getHours() < 12 ? "morning" : "afternoon"
+          })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setAiAdvice({
+            suggestion: data.suggestion,
+            predictedLoad: data.predictedLoad,
+            alignmentScore: data.alignmentScore,
+            loading: false
+          });
+        } else {
+          throw new Error("Failed to reach counseling API");
+        }
+      } catch (err) {
+        console.warn("AI counsel fallback activated:", err);
+        // fallback
         setAiAdvice({
           suggestion: tasks.length > 0 
             ? `AI suggests finishing "${tasks[0].title}" to reach a Risk Level of Low during the next index block.` 
@@ -207,7 +552,13 @@ export default function App() {
           alignmentScore: 88,
           loading: false
         });
-      }, 600);
+      }
+    };
+
+    if (timeSinceLastFetch < minInterval) {
+      fetchTimeoutRef.current = setTimeout(performFetch, minInterval - timeSinceLastFetch);
+    } else {
+      performFetch();
     }
   };
 
@@ -216,8 +567,114 @@ export default function App() {
     const interval = setInterval(() => {
       setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     }, 60000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
+    };
   }, [tasks.length]);
+
+  // Fetch dynamic AI telemetry insights
+  const fetchCognitiveInsights = async () => {
+    setCognitiveInsights(prev => ({ ...prev, loading: true }));
+    try {
+      const headers: any = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const response = await fetch("/api/insights", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          tasks: tasks.map(t => ({
+            title: t.title,
+            project: t.project,
+            score: t.score,
+            duration: t.duration,
+            cognitiveLoad: t.cognitiveLoad,
+            completed: t.completed
+          })),
+          goals: goals,
+          schedule: schedule
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCognitiveInsights({
+          focusDiagnostic: data.focusDiagnostic,
+          restAssessment: data.restAssessment,
+          cognitiveCapacity: data.cognitiveCapacity || 80,
+          loading: false
+        });
+      } else {
+        throw new Error("Failed to fetch insights");
+      }
+    } catch (err) {
+      console.warn("AI insights fallback activated:", err);
+      const pendingTasksCount = tasks.filter(t => !t.completed).length;
+      const completedTasksCount = tasks.filter(t => t.completed).length;
+      setCognitiveInsights({
+        focusDiagnostic: completedTasksCount > 0 
+          ? `You have completed ${completedTasksCount} tasks successfully. Your active cognitive alignment shows strong progress.`
+          : "Your active cognitive alignment indicates optimal deep focus stamina during morning blocks.",
+        restAssessment: pendingTasksCount > 4
+          ? "You have several pending tasks. Maintaining a 1:5 ratio of active rest to deep concentration is recommended to eliminate burnout."
+          : "Buffer intervals remained steady at 35 mins. Maintaining a 1:5 ratio of active rest to deep concentration is recommended.",
+        cognitiveCapacity: Math.max(40, 95 - pendingTasksCount * 10),
+        loading: false
+      });
+    }
+  };
+
+  const getDynamicInsights = (): DailyInsight[] => {
+    const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const currentDayName = daysOfWeek[new Date().getDay()];
+
+    let todayDeepMins = 0;
+    let todayCompletedCount = 0;
+    tasks.forEach(t => {
+      if (t.completed) {
+        todayCompletedCount++;
+        const match = t.duration.match(/(\d+)\s*(h|m)/);
+        if (match) {
+          const val = parseInt(match[1]);
+          const unit = match[2];
+          todayDeepMins += unit === "h" ? val * 60 : val;
+        } else {
+          todayDeepMins += 30;
+        }
+      }
+    });
+
+    if (todayDeepMins === 0 && todayCompletedCount > 0) {
+      todayDeepMins = todayCompletedCount * 30;
+    }
+
+    let todayRestMins = 20;
+    schedule.forEach(s => {
+      if (s.completed && (s.title.toLowerCase().includes("rest") || s.subtitle.toLowerCase().includes("break"))) {
+        todayRestMins += 15;
+      }
+    });
+
+    return initialInsights.map(item => {
+      if (item.date === currentDayName) {
+        return {
+          ...item,
+          deepWorkMins: todayDeepMins || 45,
+          activeRestMins: todayRestMins,
+          cognitiveCapacity: cognitiveInsights.cognitiveCapacity,
+          completedTasks: todayCompletedCount
+        };
+      }
+      return item;
+    });
+  };
+
+  useEffect(() => {
+    if (activeTab === "insights") {
+      fetchCognitiveInsights();
+    }
+  }, [activeTab, tasks, schedule]);
 
   // Timer interval control
   useEffect(() => {
@@ -266,9 +723,13 @@ export default function App() {
     }
 
     try {
+      const headers: any = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       const response = await fetch("/api/prioritize", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           rawText: textToParse,
           goals: goals,
@@ -471,6 +932,10 @@ export default function App() {
     return matchQuery;
   });
 
+  if (!token) {
+    return <AuthView onAuthSuccess={handleAuthSuccess} darkCalmMode={darkCalmMode} />;
+  }
+
   return (
     <div className={`min-h-screen font-sans antialiased text-[#1b1b21] transition-colors duration-300 ${darkCalmMode ? "bg-[#12121a] text-white" : "bg-[#fbf8ff] text-[#1b1b21]"}`}>
       
@@ -483,8 +948,9 @@ export default function App() {
           setShowNotificationsMenu(false);
         }}
         userName={userName}
-        isPro={isPro}
         tasksCount={activeUncompletedCount}
+        onLogout={handleLogout}
+        profilePic={profilePic}
       />
 
       {/* Top Navigation Bar / Search / Notifications */}
@@ -649,6 +1115,8 @@ export default function App() {
             historyTab={historyTab}
             setHistoryTab={setHistoryTab}
             currentRisk={currentRisk}
+            userName={userName}
+            onClearAllDeletedTasks={handleClearAllDeletedTasks}
           />
         )}
 
@@ -681,6 +1149,8 @@ export default function App() {
             setShowConnectionMenu={setShowConnectionMenu}
             isConnecting={isConnecting}
             setIsConnecting={setIsConnecting}
+            googleEvents={googleEvents}
+            userId={user?.id}
           />
         )}
 
@@ -697,7 +1167,9 @@ export default function App() {
         {activeTab === "insights" && (
           <InsightsView
             darkCalmMode={darkCalmMode}
-            insights={initialInsights}
+            insights={getDynamicInsights()}
+            cognitiveInsights={cognitiveInsights}
+            onRefresh={fetchCognitiveInsights}
           />
         )}
 
@@ -706,8 +1178,10 @@ export default function App() {
           <SettingsView
             darkCalmMode={darkCalmMode}
             userName={userName}
-            setUserName={setUserName}
-            isPro={isPro}
+            userEmail={userEmail}
+            profilePic={profilePic}
+            onLogout={handleLogout}
+            onUpdateProfile={handleUpdateProfile}
           />
         )}
 
@@ -737,6 +1211,7 @@ export default function App() {
         setSchedule={setSchedule}
         isDark={darkCalmMode}
         onOpenCaptureModal={() => setIsCaptureModalOpen(true)}
+        token={token}
       />
 
     </div>

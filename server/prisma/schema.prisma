@@ -1,0 +1,62 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                 String         @id @default(uuid())
+  email              String         @unique
+  passwordHash       String?
+  userName           String
+  profilePic         String?
+  googleId           String?        @unique
+  googleAccessToken  String?
+  googleRefreshToken String?
+  googleTokenExpiry  DateTime?
+  createdAt          DateTime       @default(now())
+  tasks              Task[]
+  goals              Goal[]
+  schedule           ScheduleItem[]
+}
+
+model Task {
+  id            String   @id
+  title         String
+  project       String
+  nextStep      String?
+  score         Int
+  duration      String
+  cognitiveLoad String
+  completed     Boolean  @default(false)
+  explanation   String?
+  createdAt     DateTime @default(now())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Goal {
+  id         String  @id
+  name       String
+  project    String
+  progress   Int
+  targetDate String?
+  metric     String?
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ScheduleItem {
+  id        String  @id
+  time      String
+  title     String
+  subtitle  String
+  completed Boolean @default(false)
+  isNow     Boolean @default(false)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

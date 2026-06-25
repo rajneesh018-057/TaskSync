@@ -22,6 +22,7 @@ interface AIAssistantDrawerProps {
   setSchedule: React.Dispatch<React.SetStateAction<ScheduleItem[]>>;
   isDark: boolean;
   onOpenCaptureModal: () => void;
+  token?: string | null;
 }
 
 export default function AIAssistantDrawer({
@@ -29,13 +30,15 @@ export default function AIAssistantDrawer({
   schedule,
   setSchedule,
   isDark,
-  onOpenCaptureModal
+  onOpenCaptureModal,
+  token
 }: AIAssistantDrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatHistory, setChatHistory] = useState<Array<{ sender: "user" | "ai"; text: string }>>([]);
   const [recommendationApproved, setRecommendationApproved] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
 
   const drawerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -132,48 +135,114 @@ export default function AIAssistantDrawer({
     setRecommendationApproved(true);
   };
 
-  const handleAskAI = (e: React.FormEvent) => {
+  const handleAskAI = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim() || chatLoading) return;
 
     const userMsg = chatInput.trim();
     setChatHistory(prev => [...prev, { sender: "user", text: userMsg }]);
     setChatInput("");
+    setChatLoading(true);
 
-    // Simulate AI response based on questions
-    setTimeout(() => {
-      let aiResponse = "I'm analyzing your current timeline. Let's optimize your workload to minimize switches.";
-      const lower = userMsg.toLowerCase();
-      if (lower.includes("focus") || lower.includes("today")) {
-        aiResponse = "Today you should focus on 'Finalize Q3 Performance Review'. It demands peak executive attention. Start in the morning block.";
-      } else if (lower.includes("deadline") || lower.includes("risk")) {
-        aiResponse = "Your 'UX Evaluation Audit' target on July 1st is currently at risk due to a lack of dedicated focus blocks next week.";
-      } else if (lower.includes("friday") || lower.includes("finish")) {
-        aiResponse = "Yes, but you must resolve the double-booking tomorrow afternoon to stay on track without working late.";
-      } else if (lower.includes("cognitive") || lower.includes("load")) {
-        aiResponse = "To reduce cognitive load, bundle minor admin tasks like 'Organize Workspace Files' into a single 20-minute slot at the end of the day.";
+    try {
+      const headers: any = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
       }
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          message: userMsg,
+          history: chatHistory,
+          tasks: tasks.filter(t => !t.completed),
+          schedule: schedule
+        })
+      });
 
-      setChatHistory(prev => [...prev, { sender: "ai", text: aiResponse }]);
-    }, 800);
+      if (response.ok) {
+        const data = await response.json();
+        setChatHistory(prev => [...prev, { sender: "ai", text: data.text }]);
+      } else {
+        throw new Error("Failed to get response from AI");
+      }
+    } catch (err) {
+      console.error("AI Coach Chat error:", err);
+      // Fallback response using heuristics if API fails
+      let fallbackText = "I'm analyzing your current timeline. Let's optimize your workload to minimize switches.";
+      const lower = userMsg.toLowerCase();
+      const highestTask = [...tasks].filter(t => !t.completed).sort((a, b) => b.score - a.score)[0];
+
+      if (lower.includes("focus") || lower.includes("today")) {
+        if (highestTask) {
+          fallbackText = `Today you should focus on '${highestTask.title}'. It has a high priority score of ${highestTask.score} and aligns with your '${highestTask.project}' project. Start in your next deep work block.`;
+        } else {
+          fallbackText = "Today you should focus on defining your core goals and scheduling new tasks to build your productivity roadmap.";
+        }
+      } else if (lower.includes("deadline") || lower.includes("risk")) {
+        fallbackText = "Your active targets are currently being monitored. Check the Planner tab to ensure you have dedicated focus blocks scheduled.";
+      } else if (lower.includes("friday") || lower.includes("finish")) {
+        fallbackText = "Yes, but you must resolve any overlapping schedule events tomorrow afternoon to stay on track.";
+      } else if (lower.includes("cognitive") || lower.includes("load")) {
+        fallbackText = "To reduce cognitive load, bundle minor admin tasks like 'Organize Workspace Files' into a single 20-minute slot at the end of the day.";
+      }
+      setChatHistory(prev => [...prev, { sender: "ai", text: fallbackText }]);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
-  const handleQuickPrompt = (promptText: string) => {
+  const handleQuickPrompt = async (promptText: string) => {
+    if (chatLoading) return;
     setChatHistory(prev => [...prev, { sender: "user", text: promptText }]);
-    setTimeout(() => {
-      let aiResponse = "Checking workload metrics...";
-      const lower = promptText.toLowerCase();
-      if (lower.includes("focus")) {
-        aiResponse = "Today you should focus on 'Finalize Q3 Performance Review'. It demands peak executive attention. Start in the morning block.";
-      } else if (lower.includes("deadline")) {
-        aiResponse = "Your 'UX Evaluation Audit' target on July 1st is currently at risk due to a lack of dedicated focus blocks next week.";
-      } else if (lower.includes("finish")) {
-        aiResponse = "Yes, but you must resolve the double-booking tomorrow afternoon to stay on track without working late.";
-      } else if (lower.includes("reduce")) {
-        aiResponse = "To reduce cognitive load, bundle minor admin tasks like 'Organize Workspace Files' into a single 20-minute slot at the end of the day.";
+    setChatLoading(true);
+
+    try {
+      const headers: any = { "Content-Type": "application/json" };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
       }
-      setChatHistory(prev => [...prev, { sender: "ai", text: aiResponse }]);
-    }, 700);
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          message: promptText,
+          history: chatHistory,
+          tasks: tasks.filter(t => !t.completed),
+          schedule: schedule
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setChatHistory(prev => [...prev, { sender: "ai", text: data.text }]);
+      } else {
+        throw new Error("Failed to get response from AI");
+      }
+    } catch (err) {
+      console.error("AI Coach Quick Prompt error:", err);
+      // Fallback
+      let fallbackText = "Checking workload metrics...";
+      const lower = promptText.toLowerCase();
+      const highestTask = [...tasks].filter(t => !t.completed).sort((a, b) => b.score - a.score)[0];
+
+      if (lower.includes("focus")) {
+        if (highestTask) {
+          fallbackText = `Today you should focus on '${highestTask.title}'. It has a high priority score of ${highestTask.score} and aligns with your '${highestTask.project}' project. Start in your next deep work block.`;
+        } else {
+          fallbackText = "Today you should focus on defining your core goals and scheduling new tasks to build your productivity roadmap.";
+        }
+      } else if (lower.includes("deadline")) {
+        fallbackText = "Your active targets are currently being monitored. Check the Planner tab to ensure you have dedicated focus blocks scheduled.";
+      } else if (lower.includes("finish")) {
+        fallbackText = "Yes, but you must resolve any overlapping schedule events tomorrow afternoon to stay on track.";
+      } else if (lower.includes("reduce")) {
+        fallbackText = "To reduce cognitive load, bundle minor admin tasks like 'Organize Workspace Files' into a single 20-minute slot at the end of the day.";
+      }
+      setChatHistory(prev => [...prev, { sender: "ai", text: fallbackText }]);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   const activeTasks = tasks.filter(t => !t.completed);
@@ -473,7 +542,8 @@ export default function AIAssistantDrawer({
                     <form onSubmit={handleAskAI} className="flex gap-2 relative">
                       <input
                         type="text"
-                        placeholder="Ask AI Coach..."
+                        placeholder={chatLoading ? "AI Coach is thinking..." : "Ask AI Coach..."}
+                        disabled={chatLoading}
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
                         className={`flex-1 text-xs px-3 py-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#5054b1] pr-10 ${
@@ -484,11 +554,15 @@ export default function AIAssistantDrawer({
                       />
                       <button
                         type="submit"
-                        disabled={!chatInput.trim()}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5054b1] disabled:text-gray-400 transition-colors p-1"
+                        disabled={!chatInput.trim() || chatLoading}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5054b1] disabled:text-gray-400 transition-colors p-1 flex items-center justify-center"
                         aria-label="Send message"
                       >
-                        <Send className="w-4 h-4" />
+                        {chatLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-[#5054b1]" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
                       </button>
                     </form>
                   </div>

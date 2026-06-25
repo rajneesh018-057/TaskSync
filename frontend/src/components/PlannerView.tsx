@@ -27,6 +27,8 @@ interface PlannerViewProps {
   setShowConnectionMenu: (val: boolean) => void;
   isConnecting: boolean;
   setIsConnecting: (val: boolean) => void;
+  googleEvents?: any[];
+  userId?: string;
 }
 
 export default function PlannerView({
@@ -42,8 +44,42 @@ export default function PlannerView({
   showConnectionMenu,
   setShowConnectionMenu,
   isConnecting,
-  setIsConnecting
+  setIsConnecting,
+  googleEvents = [],
+  userId
 }: PlannerViewProps) {
+  const renderGoogleEventsForDate = (dateStr: string) => {
+    if (!connectedSources.includes("google") || !googleEvents) return null;
+
+    return googleEvents
+      .filter((event: any) => {
+        const start = event.start?.dateTime || event.start?.date;
+        if (!start) return false;
+        const eventDate = new Date(start);
+        const targetDate = new Date(`2026-${dateStr.replace("June ", "06-")}`);
+        return (
+          eventDate.getFullYear() === targetDate.getFullYear() &&
+          eventDate.getMonth() === targetDate.getMonth() &&
+          eventDate.getDate() === targetDate.getDate()
+        );
+      })
+      .map((event: any) => {
+        const start = event.start?.dateTime ? new Date(event.start.dateTime) : null;
+        const end = event.end?.dateTime ? new Date(event.end.dateTime) : null;
+        const timeStr = start && end 
+          ? `${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          : "All Day";
+
+        return (
+          <div key={event.id} className="p-3 rounded-xl border border-blue-500/20 bg-blue-500/5 text-blue-600 dark:text-blue-400 text-xs">
+            <span className="text-[9px] font-mono uppercase tracking-wider block font-bold text-blue-500 font-bold">Google Calendar</span>
+            <span className="font-bold block mt-0.5">{event.summary || "(No Title)"}</span>
+            <span className="text-[10px] block mt-0.5">{timeStr}</span>
+          </div>
+        );
+      });
+  };
+
   return (
     <div className="max-w-[1200px] mx-auto text-left space-y-6 pt-4">
       
@@ -144,15 +180,9 @@ export default function PlannerView({
                   {/* Unified Timeline Grid Columns */}
                   <div className="grid grid-cols-5 gap-4 flex-1">
                     
-                    {/* MONDAY COLUMN */}
+                     {/* MONDAY COLUMN */}
                     <div className="space-y-3">
-                      {connectedSources.includes("google") && (
-                        <div className="p-3 rounded-xl border border-blue-500/20 bg-blue-500/5 text-blue-600 dark:text-blue-400 text-xs">
-                          <span className="text-[9px] font-mono uppercase tracking-wider block font-bold text-blue-500">Google Calendar</span>
-                          <span className="font-bold block mt-0.5">Strategic Alignment</span>
-                          <span className="text-[10px] block mt-0.5">09:00 AM - 10:30 AM</span>
-                        </div>
-                      )}
+                      {renderGoogleEventsForDate("June 22")}
 
                       {(!appliedOptimizations.includes("deepFocus") && !appliedOptimizations.includes("optimizeWeek")) ? (
                         <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400 text-xs">
@@ -195,13 +225,7 @@ export default function PlannerView({
                         </div>
                       )}
 
-                      {connectedSources.includes("google") && (
-                        <div className="p-3 rounded-xl border border-blue-500/20 bg-blue-500/5 text-blue-600 dark:text-blue-400 text-xs">
-                          <span className="text-[9px] font-mono uppercase tracking-wider block font-bold text-blue-500">Google Calendar</span>
-                          <span className="font-bold block mt-0.5">Client Feedback Review</span>
-                          <span className="text-[10px] block mt-0.5">11:00 AM - 12:00 PM</span>
-                        </div>
-                      )}
+                      {renderGoogleEventsForDate("June 23")}
 
                       {(!appliedOptimizations.includes("energyMismatch") && !appliedOptimizations.includes("optimizeWeek")) ? (
                         <div className="p-3 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-600 dark:text-rose-400 text-xs">
@@ -220,6 +244,8 @@ export default function PlannerView({
 
                     {/* WEDNESDAY COLUMN */}
                     <div className="space-y-3">
+                      {renderGoogleEventsForDate("June 24")}
+
                       {(appliedOptimizations.includes("unscheduledTask") || appliedOptimizations.includes("optimizeWeek")) ? (
                         <div className="p-3 rounded-xl border border-purple-500/20 bg-purple-500/5 text-purple-600 dark:text-purple-400 text-xs">
                           <span className="text-[9px] font-mono uppercase tracking-wider block font-bold text-purple-500 font-bold">AI Scheduled Task</span>
@@ -243,6 +269,8 @@ export default function PlannerView({
 
                     {/* THURSDAY COLUMN */}
                     <div className="space-y-3">
+                      {renderGoogleEventsForDate("June 25")}
+
                       {(appliedOptimizations.includes("deadlineRisk") || appliedOptimizations.includes("optimizeWeek")) ? (
                         <div className="p-3 rounded-xl border border-[#5054b1]/20 bg-[#5054b1]/5 text-[#5054b1] dark:text-[#bfc1ff] text-xs">
                           <span className="text-[9px] font-mono uppercase tracking-wider block font-bold text-[#5054b1]">AI Focus Block</span>
@@ -258,6 +286,8 @@ export default function PlannerView({
 
                     {/* FRIDAY COLUMN */}
                     <div className="space-y-3">
+                      {renderGoogleEventsForDate("June 26")}
+
                       {(appliedOptimizations.includes("deadlineRisk") || appliedOptimizations.includes("optimizeWeek")) && (
                         <div className="p-3 rounded-xl border border-[#5054b1]/20 bg-[#5054b1]/5 text-[#5054b1] dark:text-[#bfc1ff] text-xs">
                           <span className="text-[9px] font-mono uppercase tracking-wider block font-bold text-[#5054b1]">AI Focus Block</span>
@@ -291,10 +321,23 @@ export default function PlannerView({
                 <div className="space-y-4">
                   <div className="font-bold text-sm text-[#010047] dark:text-white border-b pb-2">Monday, June 22</div>
                   <div className="space-y-2.5">
-                    <div className="flex gap-4 p-3 rounded-lg bg-blue-500/5 text-blue-600 text-xs">
-                      <span className="font-mono w-20 text-right">09:00 AM</span>
-                      <span>Google Calendar: Strategic Alignment Meeting</span>
-                    </div>
+                    {connectedSources.includes("google") && googleEvents && googleEvents.filter((event: any) => {
+                      const start = event.start?.dateTime || event.start?.date;
+                      if (!start) return false;
+                      const eventDate = new Date(start);
+                      return eventDate.getFullYear() === 2026 && eventDate.getMonth() === 5 && eventDate.getDate() === 22;
+                    }).map((event: any) => {
+                      const start = event.start?.dateTime ? new Date(event.start.dateTime) : null;
+                      const timeStr = start 
+                        ? start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : "All Day";
+                      return (
+                        <div key={event.id} className="flex gap-4 p-3 rounded-lg bg-blue-500/5 text-blue-600 text-xs">
+                          <span className="font-mono w-20 text-right">{timeStr}</span>
+                          <span>Google Calendar: {event.summary || "(No Title)"}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -394,12 +437,7 @@ export default function PlannerView({
                           <button
                             onClick={() => {
                               setIsConnecting(true);
-                              setTimeout(() => {
-                                setIsConnecting(false);
-                                setIsCalendarConnected(true);
-                                setConnectedSources(["google"]);
-                                setShowConnectionMenu(false);
-                              }, 1200);
+                              window.location.href = `http://localhost:5050/api/auth/google?flow=calendar&userId=${userId}`;
                             }}
                             className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-[0.98]"
                           >

@@ -1,21 +1,44 @@
 import React from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles, RefreshCw, Loader2 } from "lucide-react";
 import { DailyInsight } from "../types";
 
 interface InsightsViewProps {
   darkCalmMode: boolean;
   insights: DailyInsight[];
+  cognitiveInsights: {
+    focusDiagnostic: string;
+    restAssessment: string;
+    cognitiveCapacity: number;
+    loading: boolean;
+  };
+  onRefresh: () => void;
 }
 
 export default function InsightsView({
   darkCalmMode,
-  insights
+  insights,
+  cognitiveInsights,
+  onRefresh
 }: InsightsViewProps) {
   return (
     <div className="max-w-[850px] mx-auto text-left space-y-6 pt-4">
-      <div className="flex flex-col space-y-1">
-        <h3 className="font-display text-2xl font-bold text-[#010047] dark:text-white">Active Calm Cognitive Telemetry</h3>
-        <p className="text-sm text-[#72749b]">Observe visual indicators mapping deep focus concentration blocks vs deliberate restorative active rest intervals.</p>
+      <div className="flex justify-between items-center flex-wrap gap-4">
+        <div className="flex flex-col space-y-1">
+          <h3 className="font-display text-2xl font-bold text-[#010047] dark:text-white">Active Calm Cognitive Telemetry</h3>
+          <p className="text-sm text-[#72749b]">Observe visual indicators mapping deep focus concentration blocks vs deliberate restorative active rest intervals.</p>
+        </div>
+        <button
+          onClick={onRefresh}
+          disabled={cognitiveInsights.loading}
+          className="p-2 py-2 px-4 bg-[#f5f2fb] dark:bg-white/10 text-[#5054b1] dark:text-[#bfc1ff] hover:bg-[#e1e0ff] dark:hover:bg-white/20 rounded-xl transition-all font-sans text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+        >
+          {cognitiveInsights.loading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4" />
+          )}
+          <span>Recalculate</span>
+        </button>
       </div>
 
       {/* Static high-accuracy customized SVG chart visualization */}
@@ -28,7 +51,7 @@ export default function InsightsView({
             <p className="text-[10px] text-[#72749b]">Shows the correlation of deep work hours vs systemic cognitive recovery</p>
           </div>
           <span className="font-mono text-[9px] uppercase tracking-wider text-[#5054b1] font-bold bg-[#e1e0ff] dark:bg-white/10 px-2.5 py-0.5 rounded-full">
-            High alignment index
+            Cognitive Capacity: {cognitiveInsights.cognitiveCapacity}%
           </span>
         </div>
 
@@ -99,22 +122,41 @@ export default function InsightsView({
 
       {/* Performance analysis readout card */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-5 rounded-2xl bg-gradient-to-tr from-[#5054b1] to-[#373b97] text-white space-y-2">
-          <Sparkles className="w-6 h-6 text-cyan-300" />
-          <h4 className="font-display font-medium text-xs">Dynamic Focus Diagnostic Alignment</h4>
-          <p className="text-xs leading-relaxed opacity-90">
-            "Your active cognitive alignment indicates optimal deep focus stamina during morning blocks of mid-week, matching steady adrenaline indicators securely."
-          </p>
+        <div className="p-5 rounded-2xl bg-gradient-to-tr from-[#5054b1] to-[#373b97] text-white space-y-2 relative min-h-[140px] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="w-5 h-5 text-cyan-300 animate-pulse" />
+              <h4 className="font-display font-bold text-xs uppercase tracking-wider text-cyan-200">Dynamic Focus Diagnostic</h4>
+            </div>
+            {cognitiveInsights.loading ? (
+              <div className="flex items-center gap-2 text-xs py-4 italic text-cyan-100">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Generating custom analytical diagnostic...</span>
+              </div>
+            ) : (
+              <p className="text-xs leading-relaxed opacity-95">
+                "{cognitiveInsights.focusDiagnostic}"
+              </p>
+            )}
+          </div>
         </div>
 
-        <div className="p-5 rounded-2xl border bg-white space-y-2 text-[#464652]">
-          <h4 className="font-sans font-bold text-xs text-[#010047]">Cortical Buffer Rest Assessment</h4>
-          <p className="text-xs leading-relaxed">
-            "Buffer intervals remained steady at 35 mins. Maintaining a 1:5 ratio of active rest to deep concentration is highly recommended to eliminate executive burnouts."
-          </p>
+        <div className="p-5 rounded-2xl border bg-white dark:bg-[#181822] dark:border-white/10 space-y-2 text-[#464652] dark:text-zinc-300 min-h-[140px] flex flex-col justify-between">
+          <div>
+            <h4 className="font-sans font-bold text-xs text-[#010047] dark:text-white uppercase tracking-wider mb-2">Cortical Buffer Rest Assessment</h4>
+            {cognitiveInsights.loading ? (
+              <div className="flex items-center gap-2 text-xs py-4 italic text-zinc-400">
+                <Loader2 className="w-4 h-4 animate-spin text-[#5054b1]" />
+                <span>Assessing cognitive reserve...</span>
+              </div>
+            ) : (
+              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                "{cognitiveInsights.restAssessment}"
+              </p>
+            )}
+          </div>
         </div>
       </div>
-
     </div>
   );
 }
