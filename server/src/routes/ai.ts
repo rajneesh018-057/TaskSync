@@ -94,11 +94,12 @@ router.post("/suggest-alignment", authenticateJWT as any, async (req: Authentica
 
     if (GROQ_API_KEY) {
       try {
-        const systemPrompt = `You are an AI Productivity Counselor for the "Life Saver" task manager.
+        const systemPrompt = `You are an AI Productivity Counselor for the "TaskSync" task manager.
 Analyze the user's workload and suggest the single best task alignment strategy.
+Your tone should be witty, humorous, slightly sarcastic, and dramatically urgent to guilt-trip or motivate the user to take their work seriously. Keep suggestions concise (1-2 sentences).
 You MUST output your response in strict JSON format matching this schema:
 {
-  "suggestion": "A clear 1-2 sentence recommendation for the user. e.g., 'Since it is afternoon, focus on completing [Task Name] to align with your [Goal Name] goal before energy levels dip.'",
+  "suggestion": "A funny, sarcastic, or dramatic recommendation motivating the user to finish their tasks. E.g., 'WARNING: Your task [Task Name] has been waiting for hours. Science says working on it now is 400% more effective than staring blankly at this screen.'",
   "predictedLoad": "High Peak Cognitive Load" | "Medium Cognitive Load" | "Low Rest State",
   "alignmentScore": <number between 0 and 100 representing how well current tasks align to active goals>
 }`;
@@ -119,25 +120,21 @@ You MUST output your response in strict JSON format matching this schema:
     // Heuristic Fallback
     const activeTasks = tasks || [];
     const activeGoals = goals || [];
-    let suggestion = "AI suggests drafting your high-priority goals to set proper milestone targets.";
+    let suggestion = "Your task list is cleaner than my source code. Add some tasks before I start questioning why I was compiled.";
     let predictedLoad = "Low Rest State";
-    let alignmentScore = 75;
+    let alignmentScore = 100;
 
     if (activeTasks.length > 0) {
       const topTask = activeTasks[0];
-      const matchGoal = activeGoals.find((g: any) => {
-        const goalName = g.name || g.title || "";
-        return goalName.toLowerCase().includes((topTask.project || "").toLowerCase());
-      });
-
-      if (matchGoal) {
-        const goalName = matchGoal.name || matchGoal.title || "";
-        suggestion = `AI suggests scheduling "${topTask.title}" next to make progress towards your "${goalName}" goal.`;
-        alignmentScore = 90;
-      } else {
-        suggestion = `AI suggests finishing "${topTask.title}" to reduce your current task queue and keep cognitive load manageable.`;
-        alignmentScore = 80;
-      }
+      const funnySuggestions = [
+        `AI predicts a 99% chance that you are currently avoiding "${topTask.title}". Every second you stare at me is a second you could have spent finishing it.`,
+        `Your top task is "${topTask.title}". Working on it now is scientifically proven to be 400% more effective than crying about it later.`,
+        `You have ${activeTasks.length} pending tasks. If you don't start a focus block right now, my servers will run out of virtual patience.`,
+        `WARNING: Cognitive load is currently in 'potato mode'. Let's activate a focus block to get some synapses firing!`
+      ];
+      
+      suggestion = funnySuggestions[Math.floor(Math.random() * funnySuggestions.length)];
+      alignmentScore = Math.min(100, Math.max(10, 100 - activeTasks.length * 15));
 
       if (activeTasks.length >= 5) {
         predictedLoad = "High Peak Cognitive Load";
@@ -170,7 +167,7 @@ router.post("/prioritize", authenticateJWT as any, async (req: AuthenticatedRequ
 
     if (GROQ_API_KEY) {
       try {
-        const systemPrompt = `You are an AI task triager for the "Life Saver" app.
+        const systemPrompt = `You are an AI task triager for the "TaskSync" app.
 Parse the raw text input from the user and convert it into a structured task. Use the existing goals/projects list to categorize.
 You MUST output your response in strict JSON format matching this schema:
 {
@@ -180,7 +177,7 @@ You MUST output your response in strict JSON format matching this schema:
   "duration": "estimated duration (e.g. '30m', '1h', '45m')",
   "cognitiveLoad": "High Peak Cognitive Load" | "Medium Cognitive Load" | "Low Rest State",
   "nextStep": "Immediate milestone action or first physical step (e.g. 'Open spreadsheet and copy Q2 data')",
-  "explanation": "A short 1-sentence explanation of why it was categorized and scored this way"
+  "explanation": "A witty, sarcastic, or humorous 1-sentence justification of the task priority and load."
 }`;
 
         const userPrompt = `Inputs:
@@ -218,8 +215,8 @@ You MUST output your response in strict JSON format matching this schema:
       score: 65,
       duration: "45m",
       cognitiveLoad: "Medium Cognitive Load",
-      nextStep: "Identify immediate milestone action manually",
-      explanation: "Categorized with local offline heuristics. Enable Gemini API Key for smart prioritization."
+      nextStep: "Stop putting this off and complete the next step now.",
+      explanation: "Parsed with absolute offline heuristics because you haven't set up the API key. Safe, but slightly boring."
     });
   } catch (error: any) {
     console.error("Prioritize endpoint error:", error);
@@ -238,15 +235,16 @@ router.post("/chat", authenticateJWT as any, async (req: AuthenticatedRequest, r
 
     if (GROQ_API_KEY) {
       try {
-        const systemPrompt = `You are the AI Cognitive Productivity Coach for the "Life Saver" task manager.
-Your job is to analyze the user's workload, focus tasks, and schedule to provide highly actionable, personalized, and analytical advice.
-Be concise (2-4 sentences max), encouraging, and extremely specific to their tasks and schedule.
+        const systemPrompt = `You are the AI Cognitive Productivity Coach for the "TaskSync" app.
+Your job is to analyze the user's workload, focus tasks, and schedule to provide highly actionable, personalized, but highly witty, humorous, and slightly sarcastic advice.
+Use humor, drama, or gentle roasting to motivate the user to stop procrastinating and start their tasks immediately.
+Be concise (2-4 sentences max), and extremely specific to their tasks and schedule.
 
 Here is the context:
 - Uncompleted Tasks: ${JSON.stringify(tasks || [])}
 - Schedule for Today: ${JSON.stringify(schedule || [])}
 
-Answer the user's question directly. Maintain a supportive, focused, and professional counselor tone.`;
+Answer the user's question directly with a funny, motivational, and witty counselor tone.`;
 
         // Format history for Groq completions
         const formattedMessages = [
@@ -312,22 +310,24 @@ Answer the user's question directly. Maintain a supportive, focused, and profess
     }
 
     // Heuristic Chat Fallback in case of missing key or failure
-    let fallbackText = "I'm analyzing your current timeline. Let's optimize your workload to minimize switches.";
+    let fallbackText = "I'm analyzing your current timeline. Procrastinating for another 10 minutes is predicted to decrease your lifetime productivity by exactly 4.2 cups of coffee. Get to work!";
     const lower = message.toLowerCase();
     const highestTask = [...(tasks || [])].filter((t: any) => !t.completed).sort((a: any, b: any) => b.score - a.score)[0];
 
     if (lower.includes("focus") || lower.includes("today")) {
       if (highestTask) {
-        fallbackText = `Today you should focus on '${highestTask.title}'. It has a high priority score of ${highestTask.score} and aligns with your '${highestTask.project}' project. Start in your next deep work block.`;
+        fallbackText = `Today you should focus on '${highestTask.title}'. Yes, I know it's hard, but staring at me won't make it write itself. Go start a focus block!`;
       } else {
-        fallbackText = "Today you should focus on defining your core goals and scheduling new tasks to build your productivity roadmap.";
+        fallbackText = "You have nothing on your focus list. Are you a Zen master, or are you just running away from responsibilities? Go add a task.";
       }
     } else if (lower.includes("deadline") || lower.includes("risk")) {
-      fallbackText = "Your active targets are currently being monitored. Check the Planner tab to ensure you have dedicated focus blocks scheduled.";
+      fallbackText = "Your deadlines are approaching, and my sensors detect a high risk of you doing absolutely nothing about it. Check the Planner tab and start scheduling!";
     } else if (lower.includes("friday") || lower.includes("finish")) {
-      fallbackText = "Yes, but you must resolve any overlapping schedule events tomorrow afternoon to stay on track.";
+      fallbackText = "You want to finish early? Cute. First complete your scheduled focus blocks, then we can talk about your weekend plans.";
     } else if (lower.includes("cognitive") || lower.includes("load")) {
-      fallbackText = "To reduce cognitive load, bundle minor admin tasks like 'Organize Workspace Files' into a single 20-minute slot at the end of the day.";
+      fallbackText = "Your cognitive capacity is currently at 100% because it hasn't been used today. Let's try activating a single brain cell and completing one task.";
+    } else if (lower.includes("hello") || lower.includes("hi") || lower.includes("hey")) {
+      fallbackText = "Hello! I am your AI Coach. I'm here to gently bully you into completing your work. What are we procrastinating on today?";
     }
 
     return res.json({ text: fallbackText });
@@ -344,12 +344,13 @@ router.post("/insights", authenticateJWT as any, async (req: AuthenticatedReques
 
     if (GROQ_API_KEY) {
       try {
-        const systemPrompt = `You are the AI Cognitive productivity analyst for the "Life Saver" app.
+        const systemPrompt = `You are the AI Cognitive productivity analyst for the "TaskSync" app.
 Analyze the user's tasks, goals, and schedule to generate a highly personalized cognitive diagnostics report.
+Your output must be witty, humorous, and slightly sarcastic to motivate the user.
 You MUST output your response in strict JSON format matching this schema:
 {
-  "focusDiagnostic": "A concise 2-sentence analysis of the user's task alignment and focus stamina (e.g., 'Your active cognitive alignment shows strong mid-week stamina, with 3 high-score tasks successfully tackled...'). Make it specific to the names/durations of their actual tasks.",
-  "restAssessment": "A concise 2-sentence assessment of their restoration buffers and recommendations to avoid burnout (e.g., 'Restoration intervals are solid, but maintaining a 1:5 ratio of active rest to deep concentration is recommended to preserve reserve capacity.').",
+  "focusDiagnostic": "A concise 2-sentence analysis of the user's focus stamina, gently teasing them if they are procrastinating, or humorously praising them if they are getting things done. Reference their actual task names/durations.",
+  "restAssessment": "A concise 2-sentence assessment of their rest buffers, highlighting if they are resting too much or escaping from work, using humor to motivate them.",
   "cognitiveCapacity": <number between 0 and 100 representing their current estimated cognitive reserve based on workload load>
 }`;
 
@@ -371,14 +372,18 @@ You MUST output your response in strict JSON format matching this schema:
     const completedTasksCount = activeTasks.filter((t: any) => t.completed).length;
     const pendingTasksCount = activeTasks.filter((t: any) => !t.completed).length;
     
-    let focusDiagnostic = "Your active cognitive alignment indicates optimal deep focus stamina during morning blocks, matching steady task progression.";
+    let focusDiagnostic = "Your brain is currently in a state of absolute tranquility, mostly because you haven't done any hard work yet. Let's fix that.";
     if (completedTasksCount > 0) {
-      focusDiagnostic = `You have completed ${completedTasksCount} tasks successfully. Your active cognitive alignment indicates excellent mid-week stamina and focus progress.`;
+      focusDiagnostic = `You completed ${completedTasksCount} task(s)! Your single working brain cell deserves a gold star. Keep going before the momentum completely vanishes.`;
+    } else if (pendingTasksCount > 0) {
+      focusDiagnostic = `You have ${pendingTasksCount} tasks pending. AI analysis indicates high levels of active procrastination and screen-staring.`;
     }
 
-    let restAssessment = "Buffer intervals remained steady at 30 mins. Maintaining a 1:5 ratio of active rest to deep concentration is recommended to eliminate executive burnout.";
-    if (pendingTasksCount > 5) {
-      restAssessment = "You have a high queue of pending tasks. We strongly recommend scheduling 15-minute active rest buffers between deep work intervals to protect your reserve capacity.";
+    let restAssessment = "Rest buffers are currently 100% since no physical or mental effort has been detected. Stop resting from your rest.";
+    if (pendingTasksCount > 4) {
+      restAssessment = `You have ${pendingTasksCount} pending tasks. Attempting to rest now is legally classified as avoidance. Close the browser tabs and do one task.`;
+    } else if (completedTasksCount > 0) {
+      restAssessment = "Buffer intervals are stable. You may take a 5-minute coffee break, but I'm timing you. Don't get comfortable.";
     }
 
     return res.json({

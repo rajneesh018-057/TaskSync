@@ -46,7 +46,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Start Server
 app.listen(PORT, () => {
   console.log(`===============================================`);
-  console.log(`🚀 Life Saver Backend running on port ${PORT}`);
+  console.log(`🚀 TaskSync Backend running on port ${PORT}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
   console.log(`===============================================`);
 });

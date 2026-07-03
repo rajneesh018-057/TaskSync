@@ -1,5 +1,5 @@
 {
-  "name": "Life Saver",
+  "name": "TaskSync",
   "description": "A sophisticated executive dashboard for managing tasks and schedules with Active Calm mode, priority estimation, and smart predictive assistance.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

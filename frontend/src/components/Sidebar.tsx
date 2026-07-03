@@ -44,10 +44,10 @@ export default function Sidebar({
       <div className="mb-10 flex flex-col">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-[#5054b1] flex items-center justify-center text-white font-bold text-lg select-none">
-            L
+            T
           </div>
           <h1 className="font-display text-2xl font-bold text-[#010047] tracking-tight">
-            Life Saver
+            TaskSync
           </h1>
         </div>
         <div className="flex items-center gap-1.5 mt-1">

@@ -38,10 +38,10 @@ export default function App() {
     const savedUser = localStorage.getItem("lifesaver_user");
     if (savedUser) {
       try {
-        return JSON.parse(savedUser).userName || "Alex Chen";
+        return JSON.parse(savedUser).userName || "New User";
       } catch (_) {}
     }
-    return localStorage.getItem("lifesaver_username") || "Alex Chen";
+    return localStorage.getItem("lifesaver_username") || "New User";
   });
   const [userEmail, setUserEmail] = useState<string>(() => {
     const savedUser = localStorage.getItem("lifesaver_user");
@@ -127,9 +127,9 @@ export default function App() {
     alignmentScore: number;
     loading: boolean;
   }>({
-    suggestion: 'AI suggests planning your next high-priority task block to align with active goals.',
-    predictedLoad: "Medium Cognitive Load",
-    alignmentScore: 85,
+    suggestion: "I'm watching you. Literally. Add some tasks or start a focus block before I start sending judgment signals to your router.",
+    predictedLoad: "Koala-Level Brain Idle",
+    alignmentScore: 100,
     loading: false
   });
 
@@ -140,9 +140,9 @@ export default function App() {
     cognitiveCapacity: number;
     loading: boolean;
   }>({
-    focusDiagnostic: "Your active cognitive alignment indicates optimal deep focus stamina during morning blocks of mid-week, matching steady adrenaline indicators securely.",
-    restAssessment: "Buffer intervals remained steady at 35 mins. Maintaining a 1:5 ratio of active rest to deep concentration is highly recommended to eliminate executive burnouts.",
-    cognitiveCapacity: 88,
+    focusDiagnostic: "Your brain is currently in a state of absolute tranquility, mostly because you haven't done any hard work yet. Let's fix that.",
+    restAssessment: "Rest buffers are currently 100% since no physical or mental effort has been detected. Stop resting from your rest.",
+    cognitiveCapacity: 100,
     loading: false
   });
 
@@ -458,7 +458,7 @@ export default function App() {
     
     setToken(null);
     setUser(null);
-    setUserName("Alex Chen");
+    setUserName("New User");
     setUserEmail("");
     setProfilePic("");
     setTasks(initialTasks);
@@ -544,12 +544,20 @@ export default function App() {
       } catch (err) {
         console.warn("AI counsel fallback activated:", err);
         // fallback
+        const funnySuggestions = [
+          `AI predicts a 99% chance that you are currently avoiding "${tasks[0]?.title || "your responsibilities"}". Every second you stare at me is a second you could have spent finishing it.`,
+          `Your top task is "${tasks[0]?.title || "doing something productive"}". Working on it now is scientifically proven to be 400% more effective than crying about it later.`,
+          `You have ${tasks.length} pending tasks. If you don't start a focus block right now, I'm going to start generating louder and more aggressive reminders.`,
+          `WARNING: Cognitive load is currently in 'potato mode'. Let's activate a focus block to get some synapses firing!`
+        ];
+        const randomSuggestion = tasks.length > 0 
+          ? funnySuggestions[Math.floor(Math.random() * funnySuggestions.length)]
+          : "Your task list is cleaner than my source code. Add some tasks before I start questioning why I was compiled.";
+
         setAiAdvice({
-          suggestion: tasks.length > 0 
-            ? `AI suggests finishing "${tasks[0].title}" to reach a Risk Level of Low during the next index block.` 
-            : "AI suggests drafting your high-priority goals to set proper milestone targets.",
-          predictedLoad: "Medium Cognitive Load",
-          alignmentScore: 88,
+          suggestion: randomSuggestion,
+          predictedLoad: tasks.length > 3 ? "Hyper-Extended Panic Load" : (tasks.length > 0 ? "Medium Cognitive Effort" : "Koala-Level Brain Idle"),
+          alignmentScore: tasks.length > 0 ? Math.min(100, Math.max(10, 100 - tasks.length * 15)) : 100,
           loading: false
         });
       }
@@ -612,14 +620,24 @@ export default function App() {
       console.warn("AI insights fallback activated:", err);
       const pendingTasksCount = tasks.filter(t => !t.completed).length;
       const completedTasksCount = tasks.filter(t => t.completed).length;
+      let focusDiagnostic = "Your brain is currently in a state of absolute tranquility, mostly because you haven't done any hard work yet. Let's fix that.";
+      if (completedTasksCount > 0) {
+        focusDiagnostic = `You completed ${completedTasksCount} task(s)! Your single working brain cell deserves a gold star. Keep going before the momentum completely vanishes.`;
+      } else if (pendingTasksCount > 0) {
+        focusDiagnostic = `You have ${pendingTasksCount} tasks pending. AI analysis indicates high levels of active procrastination and screen-staring.`;
+      }
+
+      let restAssessment = "Rest buffers are currently 100% since no physical or mental effort has been detected. Stop resting from your rest.";
+      if (pendingTasksCount > 4) {
+        restAssessment = `You have ${pendingTasksCount} pending tasks. Attempting to rest now is legally classified as avoidance. Close the browser tabs and do one task.`;
+      } else if (completedTasksCount > 0) {
+        restAssessment = "Buffer intervals are stable. You may take a 5-minute coffee break, but I'm timing you. Don't get comfortable.";
+      }
+
       setCognitiveInsights({
-        focusDiagnostic: completedTasksCount > 0 
-          ? `You have completed ${completedTasksCount} tasks successfully. Your active cognitive alignment shows strong progress.`
-          : "Your active cognitive alignment indicates optimal deep focus stamina during morning blocks.",
-        restAssessment: pendingTasksCount > 4
-          ? "You have several pending tasks. Maintaining a 1:5 ratio of active rest to deep concentration is recommended to eliminate burnout."
-          : "Buffer intervals remained steady at 35 mins. Maintaining a 1:5 ratio of active rest to deep concentration is recommended.",
-        cognitiveCapacity: Math.max(40, 95 - pendingTasksCount * 10),
+        focusDiagnostic,
+        restAssessment,
+        cognitiveCapacity: Math.max(10, 100 - pendingTasksCount * 15),
         loading: false
       });
     }

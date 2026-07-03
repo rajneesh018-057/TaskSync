@@ -1,7 +1,7 @@
 {
-  "name": "lifesaver-backend",
+  "name": "tasksync-backend",
   "version": "1.0.0",
-  "description": "Backend server for Life Saver application",
+  "description": "Backend server for TaskSync application",
   "main": "dist/index.js",
   "type": "commonjs",
   "scripts": {
