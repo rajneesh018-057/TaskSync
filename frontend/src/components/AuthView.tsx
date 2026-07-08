@@ -201,7 +201,7 @@ export default function AuthView({ onAuthSuccess, darkCalmMode }: AuthViewProps)
           <button
             type="button"
             onClick={() => {
-              window.location.href = "http://localhost:5050/api/auth/google?flow=login";
+              window.location.href = "/api/auth/google?flow=login";
             }}
             className={`w-full flex items-center justify-center gap-2.5 border active:scale-[0.98] text-xs font-semibold py-2.5 rounded-xl transition-all cursor-pointer ${
               darkCalmMode 

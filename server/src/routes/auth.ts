@@ -292,7 +292,8 @@ router.get("/google/callback", async (req: any, res: any) => {
       }
     }
 
-    const clientUrl = `http://${clientHost}`;
+    const protocol = clientHost.includes("localhost") ? "http" : "https";
+    const clientUrl = `${protocol}://${clientHost}`;
 
     if (parsedFlow === "login") {
       let user = await prisma.user.findUnique({

@@ -437,7 +437,7 @@ export default function PlannerView({
                           <button
                             onClick={() => {
                               setIsConnecting(true);
-                              window.location.href = `http://localhost:5050/api/auth/google?flow=calendar&userId=${userId}`;
+                              window.location.href = `/api/auth/google?flow=calendar&userId=${userId}`;
                             }}
                             className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-[0.98]"
                           >
