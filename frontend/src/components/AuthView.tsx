@@ -111,7 +111,7 @@ export default function AuthView({ onAuthSuccess, darkCalmMode }: AuthViewProps)
                   className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#5054b1]/50 ${
                     darkCalmMode 
                       ? "bg-[#efecf6]/5 border-white/10 text-white placeholder:text-gray-500" 
-                      : "bg-[#f5f2fb] border-[#efecf6] text-[#1b1b21] placeholder:text-[#c7c5d4]"
+                      : "bg-[#f5f2fb] border-[#efecf6] text-[#1b1b21] placeholder:text-[#72749b]"
                   }`}
                   required={!isLogin}
                 />
@@ -135,7 +135,7 @@ export default function AuthView({ onAuthSuccess, darkCalmMode }: AuthViewProps)
                 className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#5054b1]/50 ${
                   darkCalmMode 
                     ? "bg-[#efecf6]/5 border-white/10 text-white placeholder:text-gray-500" 
-                    : "bg-[#f5f2fb] border-[#efecf6] text-[#1b1b21] placeholder:text-[#c7c5d4]"
+                    : "bg-[#f5f2fb] border-[#efecf6] text-[#1b1b21] placeholder:text-[#72749b]"
                 }`}
                 required
               />
@@ -158,7 +158,7 @@ export default function AuthView({ onAuthSuccess, darkCalmMode }: AuthViewProps)
                 className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#5054b1]/50 ${
                   darkCalmMode 
                     ? "bg-[#efecf6]/5 border-white/10 text-white placeholder:text-gray-500" 
-                    : "bg-[#f5f2fb] border-[#efecf6] text-[#1b1b21] placeholder:text-[#c7c5d4]"
+                    : "bg-[#f5f2fb] border-[#efecf6] text-[#1b1b21] placeholder:text-[#72749b]"
                 }`}
                 required
               />

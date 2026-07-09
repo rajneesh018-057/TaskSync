@@ -332,7 +332,7 @@ export default function DashboardView({
                 name="inlineTaskName"
                 type="text" 
                 placeholder="+ Quick capture custom task onto your active schedule..."
-                className={`w-full px-4 py-2 border rounded-xl text-xs placeholder:text-[#bfc1ff] focus:outline-none focus:ring-2 focus:ring-[#5054b1] transition-all ${
+                className={`w-full px-4 py-2 border rounded-xl text-xs placeholder:text-[#72749b] dark:placeholder:text-[#bfc1ff] focus:outline-none focus:ring-2 focus:ring-[#5054b1] transition-all ${
                   darkCalmMode 
                     ? "bg-white/5 border-white/10 text-white focus:bg-[#1c1c2b]" 
                     : "bg-[#fbf8ff] border-[#efecf6] text-[#010047] focus:bg-white"

@@ -34,7 +34,7 @@ export default function InboxView({
         <label className="block text-xs font-mono uppercase tracking-widest text-[#5054b1] mb-2 font-bold">Unformatted Brain-Dump Dumpster</label>
         <textarea 
           className={`w-full h-44 rounded-xl p-4 text-xs font-sans border focus:outline-none focus:ring-2 focus:ring-[#5054b1] resize-none ${
-            darkCalmMode ? "bg-white/5 border-white/10 text-white" : "bg-[#fbf8ff] border-[#efecf6]"
+            darkCalmMode ? "bg-white/5 border-white/10 text-white" : "bg-[#fbf8ff] border-[#efecf6] text-[#010047]"
           }`}
           placeholder="e.g. need to finish analyzing the design parameters today, probably takes about an hour under management essentials project..."
           value={inboxText}

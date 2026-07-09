@@ -63,7 +63,7 @@ export default function CaptureModal({
               placeholder="e.g. need to write a performance summary for UX Audit before Friday afternoon..."
               value={rawDumpInput}
               onChange={(e) => setRawDumpInput(e.target.value)}
-              className="w-full text-xs font-sans px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#5054b1] bg-white dark:bg-[#101018] dark:border-white/10 text-white"
+              className="w-full text-xs font-sans px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#5054b1] bg-white dark:bg-[#101018] dark:border-white/10 text-[#010047] dark:text-white"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -104,11 +104,11 @@ export default function CaptureModal({
               <select 
                 value={newTaskGoalProject}
                 onChange={(e) => setNewTaskGoalProject(e.target.value)}
-                className="w-full p-2.5 border rounded-lg bg-transparent text-xs text-black"
+                className="w-full p-2.5 border rounded-lg bg-transparent text-xs text-[#010047] dark:text-white dark:bg-[#181822]"
               >
-                <option value="General">General Context</option>
-                <option value="Management Essentials">Management Essentials</option>
-                <option value="UX Audit">UX Audit</option>
+                <option className="text-black" value="General">General Context</option>
+                <option className="text-black" value="Management Essentials">Management Essentials</option>
+                <option className="text-black" value="UX Audit">UX Audit</option>
               </select>
             </div>
 
@@ -119,7 +119,7 @@ export default function CaptureModal({
                 value={customDuration}
                 onChange={(e) => setCustomDuration(e.target.value)}
                 placeholder="e.g. 45m, 1h, 2h"
-                className="w-full p-2.5 border rounded-lg bg-transparent text-xs text-black"
+                className="w-full p-2.5 border rounded-lg bg-transparent text-xs text-[#010047] dark:text-white"
               />
             </div>
           </div>

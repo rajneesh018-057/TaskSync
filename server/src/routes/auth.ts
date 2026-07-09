@@ -177,7 +177,7 @@ router.put("/profile", authenticateJWT as any, async (req: AuthenticatedRequest,
 // GOOGLE OAUTH ENDPOINTS
 // ==========================================
 
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "http://localhost:5050/api/auth/google/callback";
+const GOOGLE_REDIRECT_URI = (process.env.GOOGLE_REDIRECT_URI || "http://localhost:5050/api/auth/google/callback").replace(/([^:]\/)\/+/g, "$1");
 
 // 1. Redirect to Google's OAuth consent screen
 router.get("/google", (req: any, res: any) => {
