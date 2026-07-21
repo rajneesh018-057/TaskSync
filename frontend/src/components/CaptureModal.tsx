@@ -1,5 +1,6 @@
 import React from "react";
-import { X, Sparkles, RefreshCw, ArrowRight, Check } from "lucide-react";
+import { X, Sparkles, RefreshCw } from "lucide-react";
+import { Goal } from "../types";
 
 interface CaptureModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface CaptureModalProps {
   parsedPreview: any;
   handleParseRawText: (text: string) => Promise<void>;
   handleAddNewTask: () => void;
+  goals?: Goal[];
 }
 
 export default function CaptureModal({
@@ -34,7 +36,8 @@ export default function CaptureModal({
   parserRunning,
   parsedPreview,
   handleParseRawText,
-  handleAddNewTask
+  handleAddNewTask,
+  goals = []
 }: CaptureModalProps) {
   if (!isOpen) return null;
 
@@ -60,7 +63,7 @@ export default function CaptureModal({
           <div className="flex gap-2">
             <input 
               type="text" 
-              placeholder="e.g. need to write a performance summary for UX Audit before Friday afternoon..."
+              placeholder="e.g. need to prepare project documentation before Friday afternoon..."
               value={rawDumpInput}
               onChange={(e) => setRawDumpInput(e.target.value)}
               className="w-full text-xs font-sans px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#5054b1] bg-white dark:bg-[#101018] dark:border-white/10 text-[#010047] dark:text-white"
@@ -107,8 +110,9 @@ export default function CaptureModal({
                 className="w-full p-2.5 border rounded-lg bg-transparent text-xs text-[#010047] dark:text-white dark:bg-[#181822]"
               >
                 <option className="text-black" value="General">General Context</option>
-                <option className="text-black" value="Management Essentials">Management Essentials</option>
-                <option className="text-black" value="UX Audit">UX Audit</option>
+                {goals.map(g => (
+                  <option key={g.id} className="text-black" value={g.project}>{g.name} ({g.project})</option>
+                ))}
               </select>
             </div>
 

@@ -274,7 +274,7 @@ export default function PlannerView({
                       {(appliedOptimizations.includes("deadlineRisk") || appliedOptimizations.includes("optimizeWeek")) ? (
                         <div className="p-3 rounded-xl border border-[#5054b1]/20 bg-[#5054b1]/5 text-[#5054b1] dark:text-[#bfc1ff] text-xs">
                           <span className="text-[9px] font-mono uppercase tracking-wider block font-bold text-[#5054b1]">AI Focus Block</span>
-                          <span className="font-bold block mt-0.5">UX Audit Preparation</span>
+                          <span className="font-bold block mt-0.5">High Priority Focus Block</span>
                           <span className="text-[10px] block mt-0.5">10:00 AM - 12:00 PM</span>
                         </div>
                       ) : (
@@ -291,7 +291,7 @@ export default function PlannerView({
                       {(appliedOptimizations.includes("deadlineRisk") || appliedOptimizations.includes("optimizeWeek")) && (
                         <div className="p-3 rounded-xl border border-[#5054b1]/20 bg-[#5054b1]/5 text-[#5054b1] dark:text-[#bfc1ff] text-xs">
                           <span className="text-[9px] font-mono uppercase tracking-wider block font-bold text-[#5054b1]">AI Focus Block</span>
-                          <span className="font-bold block mt-0.5">UX Audit Preparation</span>
+                          <span className="font-bold block mt-0.5">High Priority Focus Block</span>
                           <span className="text-[10px] block mt-0.5">11:00 AM - 01:00 PM</span>
                         </div>
                       )}
@@ -307,7 +307,7 @@ export default function PlannerView({
                       {connectedSources.includes("notion") && (
                         <div className="p-3 rounded-xl border border-pink-500/20 bg-pink-500/5 text-pink-600 dark:text-pink-400 text-xs">
                           <span className="text-[9px] font-mono uppercase tracking-wider block font-bold text-pink-500 font-bold">Notion Deadline</span>
-                          <span className="font-bold block mt-0.5">UX Audit Due</span>
+                          <span className="font-bold block mt-0.5">Target Milestone Due</span>
                           <span className="text-[10px] block mt-0.5">05:00 PM</span>
                         </div>
                       )}
@@ -658,7 +658,7 @@ export default function PlannerView({
                       <div className="space-y-1">
                         <p className="text-gray-400 text-[10px] uppercase font-mono tracking-wider font-semibold">Explanation</p>
                         <p className="text-gray-600 dark:text-gray-300 text-[11px] leading-relaxed">
-                          UX Audit due Friday. Current schedule provides only 1.5 hours of focus time.
+                          High priority target milestone approaching. Current schedule provides limited focus time.
                         </p>
                       </div>
                       <div className="p-2 bg-gray-50 dark:bg-white/5 rounded-lg text-[10px] leading-tight border border-gray-100 dark:border-white/5">
