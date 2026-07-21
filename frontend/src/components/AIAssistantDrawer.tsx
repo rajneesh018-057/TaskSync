@@ -23,6 +23,12 @@ interface AIAssistantDrawerProps {
   isDark: boolean;
   onOpenCaptureModal: () => void;
   token?: string | null;
+  aiAdvice?: {
+    suggestion: string;
+    predictedLoad: string;
+    alignmentScore: number;
+    loading: boolean;
+  };
 }
 
 export default function AIAssistantDrawer({
@@ -31,7 +37,8 @@ export default function AIAssistantDrawer({
   setSchedule,
   isDark,
   onOpenCaptureModal,
-  token
+  token,
+  aiAdvice
 }: AIAssistantDrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -43,6 +50,57 @@ export default function AIAssistantDrawer({
   const drawerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Derive active tasks and highest priority task dynamically
+  const activeTasks = tasks.filter(t => !t.completed);
+  const highestTask = [...activeTasks].sort((a, b) => b.score - a.score)[0];
+  const hasTasks = activeTasks.length > 0 || schedule.length > 0;
+
+  // Dynamic Risk Score calculation based on active task volume and priority scores
+  const computedRiskScore = activeTasks.length === 0 
+    ? 15 
+    : Math.min(99, Math.max(25, activeTasks.length * 15 + (highestTask ? Math.floor(highestTask.score * 0.35) : 0)));
+
+  const computedCognitiveLoad = aiAdvice?.predictedLoad || (
+    activeTasks.length >= 4 
+      ? "High Peak Cognitive Load" 
+      : activeTasks.length >= 2 
+        ? "Medium Cognitive Load" 
+        : "Low Rest State"
+  );
+
+  // Dynamic Critical Insight Alert text
+  const criticalInsightAlertText = aiAdvice?.suggestion || (
+    highestTask 
+      ? `High priority task "${highestTask.title}" (${highestTask.project}) with score ${highestTask.score}/100 requires focused execution. You have ${activeTasks.length} pending task(s) in queue.` 
+      : activeTasks.length > 0 
+        ? `You have ${activeTasks.length} active task(s) competing for mental bandwidth. Allocate dedicated focus blocks to minimize switching.` 
+        : "No active tasks in queue. Add project goals or schedule a focus block to maintain cognitive momentum."
+  );
+
+  // Dynamic Recommended Action Title & Bullet List
+  const actionTitle = highestTask
+    ? `Allocate 90-min Deep Focus block for "${highestTask.title}"`
+    : "Reschedule overlapping timeline events";
+
+  const actionImpactList = highestTask ? [
+    `Prioritize highest score task (${highestTask.score}/100)`,
+    `Allocate ${highestTask.duration} focus interval`,
+    `Advance project: ${highestTask.project}`
+  ] : [
+    "Reduce peak overload",
+    "Recover 90 minutes",
+    "Increase focus score"
+  ];
+
+  // Dynamic Why This Recommendation text
+  const whyRecommendationText = highestTask 
+    ? `Based on your workload analysis, "${highestTask.title}" holds your highest priority score (${highestTask.score}) in project "${highestTask.project}". ${highestTask.nextStep ? `Immediate next step: "${highestTask.nextStep}".` : ""} Tackling this first maximizes completion probability.`
+    : "Based on your active task queue, organizing your schedule into focus blocks prevents context switches and improves daily completion rates.";
+
+  // Dynamic Completion Probabilities
+  const currentCompletionProb = activeTasks.length === 0 ? 92 : Math.max(30, Math.min(85, 95 - activeTasks.length * 9));
+  const improvedCompletionProb = Math.min(98, currentCompletionProb + 25);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -73,7 +131,6 @@ export default function AIAssistantDrawer({
     const firstElement = focusableElements[0] as HTMLElement;
     const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
 
-    // Focus the first element when open
     setTimeout(() => {
       firstElement?.focus();
     }, 100);
@@ -101,7 +158,6 @@ export default function AIAssistantDrawer({
   const handleOpen = () => {
     setIsOpen(true);
     setLoading(true);
-    // Simulate cognitive workload analysis
     setTimeout(() => {
       setLoading(false);
     }, 1200);
@@ -112,26 +168,52 @@ export default function AIAssistantDrawer({
     triggerRef.current?.focus();
   };
 
-  // Close when clicking backdrop/outside drawer
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (drawerRef.current && !drawerRef.current.contains(e.target as Node)) {
       handleClose();
     }
   };
 
+  // Dynamic reschedule action handler adding/updating focus block in schedule
   const handleApproveReschedule = () => {
-    setSchedule(prev => 
-      prev.map(item => {
-        if (item.title === "Project Sync" || item.title.includes("Project Sync")) {
-          return {
+    if (highestTask) {
+      setSchedule(prev => {
+        const existingIndex = prev.findIndex(item => item.title.includes(highestTask.title) || item.isNow);
+        if (existingIndex !== -1) {
+          return prev.map((item, idx) => idx === existingIndex ? {
             ...item,
-            time: "16:00",
-            subtitle: "Rescheduled by AI Coach to optimize cognitive flow"
-          };
+            title: `DEEP FOCUS: ${highestTask.title}`,
+            subtitle: `Optimized by AI Coach (${highestTask.project})`,
+            isNow: true
+          } : item);
+        } else {
+          return [
+            ...prev,
+            {
+              id: `sched-auto-${Date.now()}`,
+              time: "10:00",
+              title: `DEEP FOCUS: ${highestTask.title}`,
+              subtitle: `Optimized by AI Coach (${highestTask.project})`,
+              completed: false,
+              isNow: true
+            }
+          ];
         }
-        return item;
-      })
-    );
+      });
+    } else {
+      setSchedule(prev => 
+        prev.map(item => {
+          if (item.title.includes("Project Sync") || item.title.includes("Focus")) {
+            return {
+              ...item,
+              time: "16:00",
+              subtitle: "Rescheduled by AI Coach to optimize cognitive flow"
+            };
+          }
+          return item;
+        })
+      );
+    }
     setRecommendationApproved(true);
   };
 
@@ -168,10 +250,8 @@ export default function AIAssistantDrawer({
       }
     } catch (err) {
       console.error("AI Coach Chat error:", err);
-      // Fallback response using heuristics if API fails
       let fallbackText = "I'm analyzing your current timeline. Let's optimize your workload to minimize switches.";
       const lower = userMsg.toLowerCase();
-      const highestTask = [...tasks].filter(t => !t.completed).sort((a, b) => b.score - a.score)[0];
 
       if (lower.includes("focus") || lower.includes("today")) {
         if (highestTask) {
@@ -184,7 +264,7 @@ export default function AIAssistantDrawer({
       } else if (lower.includes("friday") || lower.includes("finish")) {
         fallbackText = "Yes, but you must resolve any overlapping schedule events tomorrow afternoon to stay on track.";
       } else if (lower.includes("cognitive") || lower.includes("load")) {
-        fallbackText = "To reduce cognitive load, bundle minor admin tasks like 'Organize Workspace Files' into a single 20-minute slot at the end of the day.";
+        fallbackText = "To reduce cognitive load, bundle minor admin tasks into a single 20-minute slot at the end of the day.";
       }
       setChatHistory(prev => [...prev, { sender: "ai", text: fallbackText }]);
     } finally {
@@ -221,10 +301,8 @@ export default function AIAssistantDrawer({
       }
     } catch (err) {
       console.error("AI Coach Quick Prompt error:", err);
-      // Fallback
       let fallbackText = "Checking workload metrics...";
       const lower = promptText.toLowerCase();
-      const highestTask = [...tasks].filter(t => !t.completed).sort((a, b) => b.score - a.score)[0];
 
       if (lower.includes("focus")) {
         if (highestTask) {
@@ -237,16 +315,13 @@ export default function AIAssistantDrawer({
       } else if (lower.includes("finish")) {
         fallbackText = "Yes, but you must resolve any overlapping schedule events tomorrow afternoon to stay on track.";
       } else if (lower.includes("reduce")) {
-        fallbackText = "To reduce cognitive load, bundle minor admin tasks like 'Organize Workspace Files' into a single 20-minute slot at the end of the day.";
+        fallbackText = "To reduce cognitive load, bundle minor admin tasks into a single 20-minute slot at the end of the day.";
       }
       setChatHistory(prev => [...prev, { sender: "ai", text: fallbackText }]);
     } finally {
       setChatLoading(false);
     }
   };
-
-  const activeTasks = tasks.filter(t => !t.completed);
-  const hasTasks = activeTasks.length > 0 || schedule.length > 0;
 
   return (
     <>
@@ -353,8 +428,12 @@ export default function AIAssistantDrawer({
 
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <div className="text-[10px] font-mono text-rose-500 font-bold">Risk Score: 82</div>
-                      <div className="text-[10px] text-amber-500 font-semibold">High Cognitive Load</div>
+                      <div className={`text-[10px] font-mono font-bold ${
+                        computedRiskScore > 70 ? "text-rose-500" : computedRiskScore > 40 ? "text-amber-500" : "text-emerald-500"
+                      }`}>
+                        Risk Score: {computedRiskScore}
+                      </div>
+                      <div className="text-[10px] text-amber-500 font-semibold">{computedCognitiveLoad}</div>
                     </div>
                     <button
                       onClick={handleClose}
@@ -384,7 +463,7 @@ export default function AIAssistantDrawer({
                         </span>
                       </div>
                       <p className="text-[11px] leading-relaxed font-sans">
-                        High risk of overload between 2–4 PM. Three overlapping meetings and a high-focus task are competing for the same window. This may reduce task completion probability.
+                        {criticalInsightAlertText}
                       </p>
                     </div>
                   </div>
@@ -401,19 +480,19 @@ export default function AIAssistantDrawer({
                       {recommendationApproved ? (
                         <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold">
                           <Check className="w-4 h-4" />
-                          <span>Recommendation Approved: Moved Project Sync to 4 PM.</span>
+                          <span>Recommendation Approved: Focus block scheduled for "{highestTask?.title || "Top Task"}".</span>
                         </div>
                       ) : (
                         <div className="flex items-center justify-between gap-2">
                           <div>
-                            <span className="font-semibold block text-xs">Move Project Sync from 2 PM to 4 PM</span>
+                            <span className="font-semibold block text-xs">{actionTitle}</span>
                             <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 block">
                               Expected impact:
                             </span>
                             <ul className="list-disc pl-4 mt-0.5 space-y-0.5 text-gray-500 dark:text-gray-400 text-[10px]">
-                              <li>Reduce overload</li>
-                              <li>Recover 90 minutes</li>
-                              <li>Increase focus score</li>
+                              {actionImpactList.map((impact, i) => (
+                                <li key={i}>{impact}</li>
+                              ))}
                             </ul>
                           </div>
                         </div>
@@ -428,11 +507,6 @@ export default function AIAssistantDrawer({
                         >
                           Approve Change
                         </button>
-                        <button
-                          className="flex-1 py-2 px-3 border border-gray-300 dark:border-white/10 hover:bg-black/5 rounded-lg text-[11px] font-semibold text-gray-500 dark:text-gray-300 transition-all min-h-[36px]"
-                        >
-                          View Details
-                        </button>
                       </div>
                     )}
                   </div>
@@ -445,7 +519,7 @@ export default function AIAssistantDrawer({
                     <p className={`text-[11px] leading-relaxed font-sans ${
                       isDark ? "text-gray-300" : "text-gray-600"
                     }`}>
-                      Based on your historical productivity patterns, deep work tasks perform best during morning hours. The current schedule creates multiple context switches. Rescheduling increases completion probability.
+                      {whyRecommendationText}
                     </p>
                   </div>
 
@@ -461,7 +535,7 @@ export default function AIAssistantDrawer({
                       <div className="flex justify-between items-center text-xs">
                         <span className="font-medium">Completion Probability</span>
                         <span className="font-mono font-bold text-[#5054b1]">
-                          {recommendationApproved ? "88%" : "63% → 88%"}
+                          {recommendationApproved ? `${improvedCompletionProb}%` : `${currentCompletionProb}% → ${improvedCompletionProb}%`}
                         </span>
                       </div>
 
@@ -470,20 +544,20 @@ export default function AIAssistantDrawer({
                         <div>
                           <div className="flex justify-between text-[10px] text-gray-400 mb-1">
                             <span>Current Schedule</span>
-                            <span>63%</span>
+                            <span>{currentCompletionProb}%</span>
                           </div>
                           <div className="h-1.5 w-full bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
-                            <div className="h-full bg-rose-500 rounded-full transition-all duration-500" style={{ width: "63%" }} />
+                            <div className="h-full bg-rose-500 rounded-full transition-all duration-500" style={{ width: `${currentCompletionProb}%` }} />
                           </div>
                         </div>
 
                         <div>
                           <div className="flex justify-between text-[10px] text-gray-400 mb-1">
                             <span>After Recommendation</span>
-                            <span>88%</span>
+                            <span>{improvedCompletionProb}%</span>
                           </div>
                           <div className="h-1.5 w-full bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
-                            <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: "88%" }} />
+                            <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${improvedCompletionProb}%` }} />
                           </div>
                         </div>
                       </div>

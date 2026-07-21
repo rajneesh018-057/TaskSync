@@ -331,6 +331,7 @@ export default function App() {
         isDark={darkCalmMode}
         onOpenCaptureModal={() => setIsCaptureModalOpen(true)}
         token={token}
+        aiAdvice={aiAdvice}
       />
 
     </div>
