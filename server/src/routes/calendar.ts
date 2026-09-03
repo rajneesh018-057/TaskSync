@@ -113,4 +113,59 @@ router.get("/events", authenticateJWT as any, async (req: AuthenticatedRequest, 
   }
 });
 
+// Create a Google Calendar event with push notification reminders
+router.post("/events", authenticateJWT as any, async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user!.id;
+  const { summary, description, startTime, endTime } = req.body;
+
+  if (!summary || !startTime || !endTime) {
+    return res.status(400).json({ error: "Missing required fields: summary, startTime, endTime" });
+  }
+
+  try {
+    const accessToken = await getOrRefreshGoogleAccessToken(userId);
+    if (!accessToken) {
+      return res.status(400).json({ error: "Google Calendar not connected or session expired." });
+    }
+
+    // The magical payload that tells Google to send a mobile push notification!
+    const eventPayload = {
+      summary,
+      description: description || "Synced from TaskSync",
+      start: { dateTime: new Date(startTime).toISOString() },
+      end: { dateTime: new Date(endTime).toISOString() },
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: "popup", minutes: 15 }, // Sends a push notification to phone 15 mins before
+          { method: "email", minutes: 30 }  // Sends an email 30 mins before
+        ]
+      }
+    };
+
+    const createUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events`;
+    
+    const response = await fetch(createUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(eventPayload)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("[Google Calendar] Failed to create event:", errText);
+      return res.status(response.status).json({ error: `Failed to create event: ${errText}` });
+    }
+
+    const data = await response.json();
+    return res.json(data);
+  } catch (error: any) {
+    console.error("[Google Calendar] Create event error:", error);
+    return res.status(500).json({ error: "Failed to create calendar event." });
+  }
+});
+
 export default router;
