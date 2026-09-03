@@ -83,7 +83,7 @@ export default function DashboardView({
               <p className="text-xs font-sans">
                 <span className="font-bold text-[#5054b1] dark:text-[#bfc1ff]">Assistant Recommendation:</span>{" "}
                 {aiAdvice.loading ? (
-                  <span className="text-[#72749b] italic animate-pulse">Consulting planning patterns with Gemini...</span>
+                  <span className="text-[#72749b] italic animate-pulse">Consulting planning patterns with assistant...</span>
                 ) : (
                   <span>{aiAdvice.suggestion}</span>
                 )}
