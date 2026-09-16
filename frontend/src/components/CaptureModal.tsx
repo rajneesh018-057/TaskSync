@@ -19,6 +19,10 @@ interface CaptureModalProps {
   handleParseRawText: (text: string) => Promise<void>;
   handleAddNewTask: () => void;
   goals?: Goal[];
+  taskDeadline: string;
+  setTaskDeadline: (val: string) => void;
+  taskPriority: "LOW" | "MEDIUM" | "HIGH";
+  setTaskPriority: (val: "LOW" | "MEDIUM" | "HIGH") => void;
 }
 
 export default function CaptureModal({
@@ -37,6 +41,10 @@ export default function CaptureModal({
   parsedPreview,
   handleParseRawText,
   handleAddNewTask,
+  taskDeadline,
+  setTaskDeadline,
+  taskPriority,
+  setTaskPriority,
   goals = []
 }: CaptureModalProps) {
   if (!isOpen) return null;
@@ -125,6 +133,30 @@ export default function CaptureModal({
                 placeholder="e.g. 45m, 1h, 2h"
                 className="w-full p-2.5 border rounded-lg bg-transparent text-xs text-[#010047] dark:text-white"
               />
+            </div>
+            
+            <div className="space-y-1">
+              <label className="text-[10px] text-[#72749b] font-mono uppercase tracking-wider">Priority Level</label>
+              <select 
+                value={taskPriority}
+                onChange={(e) => setTaskPriority(e.target.value as "LOW" | "MEDIUM" | "HIGH")}
+                className="w-full p-2.5 border rounded-lg bg-transparent text-xs text-[#010047] dark:text-white dark:bg-[#181822]"
+              >
+                <option className="text-black" value="LOW">Low</option>
+                <option className="text-black" value="MEDIUM">Medium</option>
+                <option className="text-black" value="HIGH">High</option>
+              </select>
+            </div>
+            
+            <div className="space-y-1">
+              <label className="text-[10px] text-[#72749b] font-mono uppercase tracking-wider">Deadline (Optional)</label>
+              <input 
+                type="datetime-local" 
+                value={taskDeadline}
+                onChange={(e) => setTaskDeadline(e.target.value)}
+                className="w-full p-2.5 border rounded-lg bg-transparent text-xs text-[#010047] dark:text-white"
+              />
+              <p className="text-[9px] text-zinc-500 mt-1">*Leave blank to mark as a DAILY routine task.</p>
             </div>
           </div>
 

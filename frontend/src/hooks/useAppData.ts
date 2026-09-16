@@ -76,6 +76,9 @@ export function useAppData({ token }: UseAppDataProps) {
   const [rawDumpInput, setRawDumpInput] = useState("");
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>("task-1");
 
+  const [taskDeadline, setTaskDeadline] = useState("");
+  const [taskPriority, setTaskPriority] = useState<"LOW" | "MEDIUM" | "HIGH">("MEDIUM");
+
   // Sync state to local storage
   useEffect(() => {
     localStorage.setItem("lifesaver_tasks", JSON.stringify(tasks));
@@ -265,12 +268,17 @@ export function useAppData({ token }: UseAppDataProps) {
       cognitiveLoad: parsedPreview?.cognitiveLoad || "Medium Cognitive Load",
       completed: false,
       explanation: parsedPreview?.explanation || "Created manually via capture action. Set project context details clearly to optimize scheduler.",
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      deadline: taskDeadline ? new Date(taskDeadline).toISOString() : undefined,
+      priority: taskPriority,
+      type: taskDeadline ? "PROJECT" : "DAILY" // The exact logic requested!
     };
 
     setTasks(prev => [newTask, ...prev]);
     setNewTaskTitle("");
     setRawDumpInput("");
+    setTaskDeadline("");
+    setTaskPriority("MEDIUM");
     setParsedPreview(null);
   };
 
@@ -286,7 +294,8 @@ export function useAppData({ token }: UseAppDataProps) {
       cognitiveLoad: "Medium Cognitive Load",
       completed: false,
       explanation: "Quick task added directly. Click to request dynamic priority scores and cognitive load matching details.",
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      type: "DAILY" // Direct add is always a DAILY task without a deadline
     };
     setTasks(prev => [...prev, newTask]);
     setExpandedTaskId(newTask.id);
@@ -504,6 +513,10 @@ export function useAppData({ token }: UseAppDataProps) {
     setRawDumpInput,
     expandedTaskId,
     setExpandedTaskId,
+    taskDeadline,
+    setTaskDeadline,
+    taskPriority,
+    setTaskPriority,
     handleAddNewTask,
     handleDirectAdd,
     handleToggleTask,

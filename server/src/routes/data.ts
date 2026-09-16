@@ -152,6 +152,9 @@ router.post("/tasks/sync", async (req: AuthenticatedRequest, res: Response) => {
             cognitiveLoad: task.cognitiveLoad,
             completed: !!task.completed,
             explanation: task.explanation,
+            deadline: task.deadline ? new Date(task.deadline) : null,
+            priority: task.priority || "MEDIUM",
+            type: task.type || "DAILY",
             userId
           },
           create: {
@@ -164,6 +167,9 @@ router.post("/tasks/sync", async (req: AuthenticatedRequest, res: Response) => {
             cognitiveLoad: task.cognitiveLoad,
             completed: !!task.completed,
             explanation: task.explanation,
+            deadline: task.deadline ? new Date(task.deadline) : null,
+            priority: task.priority || "MEDIUM",
+            type: task.type || "DAILY",
             userId
           }
         })

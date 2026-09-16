@@ -25,18 +25,21 @@ model User {
 }
 
 model Task {
-  id            String   @id
+  id            String    @id
   title         String
   project       String
   nextStep      String?
   score         Int
   duration      String
   cognitiveLoad String
-  completed     Boolean  @default(false)
+  completed     Boolean   @default(false)
   explanation   String?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
+  deadline      DateTime?
+  priority      String?
+  type          String?
   userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Goal {

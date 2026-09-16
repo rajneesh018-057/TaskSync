@@ -88,6 +88,10 @@ export default function App() {
     setRawDumpInput,
     expandedTaskId,
     setExpandedTaskId,
+    taskDeadline,
+    setTaskDeadline,
+    taskPriority,
+    setTaskPriority,
     handleAddNewTask,
     handleDirectAdd,
     handleToggleTask,
@@ -321,6 +325,10 @@ export default function App() {
         parsedPreview={parsedPreview}
         handleParseRawText={handleParseRawText}
         handleAddNewTask={handleAddNewTask}
+        taskDeadline={taskDeadline}
+        setTaskDeadline={setTaskDeadline}
+        taskPriority={taskPriority}
+        setTaskPriority={setTaskPriority}
       />
 
       {/* Floating AI Cognitive assistant drawer panel */}
