@@ -9,6 +9,11 @@ export interface Task {
   completed: boolean;
   explanation?: string;
   createdAt: string;
+
+  // Advanced Cognitive Engine Properties
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+  deadline?: string;
+  type?: 'DAILY' | 'PROJECT';
 }
 
 export interface Goal {
