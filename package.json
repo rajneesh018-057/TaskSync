@@ -3,21 +3,34 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "vercel-build": "prisma generate --schema=server/prisma/schema.prisma && cd frontend && npm install && npm run build"
+    "vercel-build": "prisma generate --schema=server/prisma/schema.prisma && cd frontend && npm install && npm run build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:build": "docker compose build --no-cache",
+    "docker:logs": "docker compose logs -f",
+    "docker:status": "docker compose ps",
+    "docker:redis": "docker compose exec redis redis-cli",
+    "deploy": "powershell -ExecutionPolicy Bypass -File ./deploy.ps1",
+    "deploy:sh": "bash ./deploy.sh"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "@prisma/client": "^6.4.0",
     "bcryptjs": "^2.4.3",
+    "bullmq": "^6.3.13",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2"
+    "express-rate-limit": "^8.7.1",
+    "ioredis": "^6.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "rate-limit-redis": "^6.0.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/ioredis": "^4.28.10",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.14.9",
     "prisma": "^6.4.0",

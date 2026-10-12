@@ -1,57 +1,45 @@
 services:
-  # ----------------------------------------------------
-  # Database Service (PostgreSQL)
-  # ----------------------------------------------------
-  db:
-    image: postgres:15-alpine
-    container_name: tasksync-db
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: tasksync
+  redis:
+    image: redis:alpine
+    container_name: tasksync-redis
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - "6380:6379"
+    restart: always
 
-  # ----------------------------------------------------
-  # Backend API Server (Express + Prisma)
-  # ----------------------------------------------------
-  server:
+  backend:
     build:
       context: ./server
       dockerfile: Dockerfile
-    container_name: tasksync-backend
-    restart: always
+    container_name: tasksync-server
     ports:
       - "5050:5050"
     environment:
-      PORT: 5050
-      JWT_SECRET: ${JWT_SECRET:-RajnishSecretJWTTokenKey2026}
-      # Point database connection to the database container
-      DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/tasksync?schema=public
-      DIRECT_URL: postgresql://postgres:postgrespassword@db:5432/tasksync?schema=public
-      GROQ_API_KEY: ${GROQ_API_KEY}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:5050/api/auth/google/callback}
+      - PORT=5050
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - NODE_ENV=production
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - REDIS_KEY_PREFIX=${REDIS_KEY_PREFIX:-tasksync:}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-http://localhost:5050/api/auth/google/callback}
     depends_on:
-      - db
+      - redis
+    restart: always
 
-  # ----------------------------------------------------
-  # Frontend Web Client (React + Nginx)
-  # ----------------------------------------------------
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:5050/api}
+        - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-${GOOGLE_CLIENT_ID}}
     container_name: tasksync-frontend
-    restart: always
     ports:
-      - "5173:80"
+      - "${FRONTEND_PORT:-3001}:80"
     depends_on:
-      - server
-
-volumes:
-  postgres_data:
+      - backend
+    restart: always

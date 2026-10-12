@@ -1,30 +1,32 @@
 import { Router, Response } from "express";
 import prisma from "../db";
 import { authenticateJWT, AuthenticatedRequest } from "../middleware/auth";
+import { cacheMiddleware, invalidateUserCache } from "../middleware/cache";
 
 const router = Router();
 
 // Apply auth middleware to all routes in this router
 router.use(authenticateJWT as any);
 
-// ==========================================
-// TASKS ENDPOINTS
-// ==========================================
 
-// Get all tasks
-router.get("/tasks", async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user!.id;
-    const tasks = await prisma.task.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" }
-    });
-    return res.json(tasks);
-  } catch (error) {
-    console.error("Fetch tasks error:", error);
-    return res.status(500).json({ error: "Failed to fetch tasks" });
+// Get all tasks (Cached in Redis for 120s per user)
+router.get(
+  "/tasks",
+  cacheMiddleware(120, (req) => `cache:tasks:${(req as any).user?.id || "anon"}`),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const tasks = await prisma.task.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" }
+      });
+      return res.json(tasks);
+    } catch (error) {
+      console.error("Fetch tasks error:", error);
+      return res.status(500).json({ error: "Failed to fetch tasks" });
+    }
   }
-});
+);
 
 // Create task
 router.post("/tasks", async (req: AuthenticatedRequest, res: Response) => {
@@ -50,6 +52,9 @@ router.post("/tasks", async (req: AuthenticatedRequest, res: Response) => {
         userId
       }
     });
+
+    // Invalidate user cache on creation
+    await invalidateUserCache(userId);
 
     return res.status(201).json(task);
   } catch (error) {
@@ -88,6 +93,9 @@ router.put("/tasks/:id", async (req: AuthenticatedRequest, res: Response) => {
       }
     });
 
+    // Invalidate user cache on task update
+    await invalidateUserCache(userId);
+
     return res.json(updatedTask);
   } catch (error) {
     console.error("Update task error:", error);
@@ -112,6 +120,9 @@ router.delete("/tasks/:id", async (req: AuthenticatedRequest, res: Response) => 
     await prisma.task.delete({
       where: { id }
     });
+
+    // Invalidate user cache on task deletion
+    await invalidateUserCache(userId);
 
     return res.json({ success: true, message: "Task deleted successfully" });
   } catch (error) {
@@ -176,6 +187,9 @@ router.post("/tasks/sync", async (req: AuthenticatedRequest, res: Response) => {
       )
     ]);
 
+    // Invalidate user cache after bulk sync
+    await invalidateUserCache(userId);
+
     const updatedTasks = await prisma.task.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" }
@@ -192,19 +206,23 @@ router.post("/tasks/sync", async (req: AuthenticatedRequest, res: Response) => {
 // GOALS ENDPOINTS
 // ==========================================
 
-// Get all goals
-router.get("/goals", async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user!.id;
-    const goals = await prisma.goal.findMany({
-      where: { userId }
-    });
-    return res.json(goals);
-  } catch (error) {
-    console.error("Fetch goals error:", error);
-    return res.status(500).json({ error: "Failed to fetch goals" });
+// Get all goals (Cached in Redis for 120s per user)
+router.get(
+  "/goals",
+  cacheMiddleware(120, (req) => `cache:goals:${(req as any).user?.id || "anon"}`),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const goals = await prisma.goal.findMany({
+        where: { userId }
+      });
+      return res.json(goals);
+    } catch (error) {
+      console.error("Fetch goals error:", error);
+      return res.status(500).json({ error: "Failed to fetch goals" });
+    }
   }
-});
+);
 
 // Create goal
 router.post("/goals", async (req: AuthenticatedRequest, res: Response) => {
@@ -227,6 +245,9 @@ router.post("/goals", async (req: AuthenticatedRequest, res: Response) => {
         userId
       }
     });
+
+    // Invalidate user cache on goal creation
+    await invalidateUserCache(userId);
 
     return res.status(201).json(goal);
   } catch (error) {
@@ -261,6 +282,9 @@ router.put("/goals/:id", async (req: AuthenticatedRequest, res: Response) => {
       }
     });
 
+    // Invalidate user cache on goal update
+    await invalidateUserCache(userId);
+
     return res.json(updatedGoal);
   } catch (error) {
     console.error("Update goal error:", error);
@@ -285,6 +309,9 @@ router.delete("/goals/:id", async (req: AuthenticatedRequest, res: Response) => 
     await prisma.goal.delete({
       where: { id }
     });
+
+    // Invalidate user cache on goal deletion
+    await invalidateUserCache(userId);
 
     return res.json({ success: true, message: "Goal deleted successfully" });
   } catch (error) {
@@ -336,6 +363,9 @@ router.post("/goals/sync", async (req: AuthenticatedRequest, res: Response) => {
       )
     ]);
 
+    // Invalidate user cache on bulk goals sync
+    await invalidateUserCache(userId);
+
     const updatedGoals = await prisma.goal.findMany({
       where: { userId }
     });
@@ -347,23 +377,25 @@ router.post("/goals/sync", async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
-// ==========================================
-// SCHEDULE ITEMS ENDPOINTS
-// ==========================================
 
-// Get all schedule items
-router.get("/schedule", async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user!.id;
-    const schedule = await prisma.scheduleItem.findMany({
-      where: { userId }
-    });
-    return res.json(schedule);
-  } catch (error) {
-    console.error("Fetch schedule error:", error);
-    return res.status(500).json({ error: "Failed to fetch schedule items" });
+
+// Get all schedule items (Cached in Redis for 120s per user)
+router.get(
+  "/schedule",
+  cacheMiddleware(120, (req) => `cache:schedule:${(req as any).user?.id || "anon"}`),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const schedule = await prisma.scheduleItem.findMany({
+        where: { userId }
+      });
+      return res.json(schedule);
+    } catch (error) {
+      console.error("Fetch schedule error:", error);
+      return res.status(500).json({ error: "Failed to fetch schedule items" });
+    }
   }
-});
+);
 
 // Create schedule item
 router.post("/schedule", async (req: AuthenticatedRequest, res: Response) => {
@@ -386,6 +418,9 @@ router.post("/schedule", async (req: AuthenticatedRequest, res: Response) => {
         userId
       }
     });
+
+    // Invalidate user cache on schedule creation
+    await invalidateUserCache(userId);
 
     return res.status(201).json(item);
   } catch (error) {
@@ -420,6 +455,9 @@ router.put("/schedule/:id", async (req: AuthenticatedRequest, res: Response) => 
       }
     });
 
+    // Invalidate user cache on schedule update
+    await invalidateUserCache(userId);
+
     return res.json(updatedItem);
   } catch (error) {
     console.error("Update schedule item error:", error);
@@ -444,6 +482,9 @@ router.delete("/schedule/:id", async (req: AuthenticatedRequest, res: Response) 
     await prisma.scheduleItem.delete({
       where: { id }
     });
+
+    // Invalidate user cache on schedule delete
+    await invalidateUserCache(userId);
 
     return res.json({ success: true, message: "Schedule item deleted successfully" });
   } catch (error) {
@@ -494,6 +535,9 @@ router.post("/schedule/sync", async (req: AuthenticatedRequest, res: Response) =
         })
       )
     ]);
+
+    // Invalidate user cache on bulk schedule sync
+    await invalidateUserCache(userId);
 
     const updatedSchedule = await prisma.scheduleItem.findMany({
       where: { userId }

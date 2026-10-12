@@ -20,10 +20,14 @@ The application is built using a modern full-stack TypeScript architecture:
 - **Framework:** Express.js
 - **Database client:** Prisma ORM
 - **Database:** PostgreSQL (supports local containerized Postgres or cloud instances like Supabase)
+- **Cache & Rate Limiting:** Redis 7 via `ioredis` and `rate-limit-redis` (Cache-Aside pattern, non-blocking `SCAN` invalidation, sliding window rate limiting)
+- **Orchestration & DevOps:** Docker Compose (multi-container with healthchecks, startup sequencing, Alpine multi-stage builds, Nginx reverse proxy, and log rotation)
 
 ### AI Integration
 - **LLM Engine:** Groq API (fallback list: `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `mixtral-8x7b-32768`).
 - **Heuristic Fallback:** If no API key is specified, the application uses local rule-based analysis to maintain core functionality.
+
+> 📖 **Deep Dive Documentation:** For backend system design and DevOps interview details, see [DOCKER_REDIS_SYSTEM_DESIGN.md](./DOCKER_REDIS_SYSTEM_DESIGN.md).
 
 ---
 

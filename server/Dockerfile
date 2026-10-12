@@ -1,48 +1,56 @@
-# --- Build Stage ---
+# ========================================================
+# Stage 1: Build & TypeScript Compilation
+# ========================================================
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package configuration files
+# Install build dependencies
 COPY package*.json ./
-
-# Install all dependencies (including devDependencies for typescript compilation)
 RUN npm ci
 
 # Copy Prisma schema and generate client
 COPY prisma ./prisma/
 RUN npx prisma generate
 
-# Copy source code and config files
+# Copy application source & config
 COPY tsconfig.json ./
 COPY src ./src
 
-# Compile TypeScript
+# Compile TypeScript to JavaScript in /app/dist
 RUN npm run build
 
-# --- Runner Stage ---
+# ========================================================
+# Stage 2: Production Minimal Runner
+# ========================================================
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy package files
+# Install dumb-init (PID 1 signal forwarding), wget (healthcheck), and openssl (Prisma runtime requirement on Alpine)
+RUN apk add --no-cache dumb-init wget openssl
+
+# Copy package descriptors
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
-# Copy generated Prisma Client and schema
+# Copy generated Prisma engine binaries & client from builder
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY prisma ./prisma
 
-# Copy built application from builder
+# Copy compiled TypeScript code
 COPY --from=builder /app/dist ./dist
 
-# Expose port (default is 5050 in configuration)
+# Expose backend port
 EXPOSE 5050
 
-# Run database schema push followed by the main server
-CMD npx prisma db push && node dist/index.js
+# Use dumb-init as init system
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+# Run server directly with Node.js
+CMD ["node", "dist/index.js"]

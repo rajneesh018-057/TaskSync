@@ -1,7 +1,13 @@
 import { Router, Response } from "express";
+import crypto from "crypto";
 import { authenticateJWT, AuthenticatedRequest } from "../middleware/auth";
+import { aiLimiter } from "../middleware/rateLimiter";
+import { cacheGet, cacheSet } from "../redis";
 
 const router = Router();
+
+// Apply AI rate limiter to all AI inference routes to protect token quotas & compute
+router.use(aiLimiter);
 
 // Initialize Groq API Configuration
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
@@ -92,6 +98,25 @@ router.post("/suggest-alignment", authenticateJWT as any, async (req: Authentica
       return res.status(400).json({ error: "Tasks and goals are required" });
     }
 
+    const userId = req.user?.id || "anon";
+    // Generate deterministic hash of user's active workload context
+    const inputHash = crypto
+      .createHash("md5")
+      .update(JSON.stringify({ tasks, goals, timeOfDay }))
+      .digest("hex")
+      .slice(0, 12);
+    const cacheKey = `ai:alignment:${userId}:${inputHash}`;
+
+    // Cache lookup: Serve identical requests within 90s instantly from Redis
+    const cachedResponse = await cacheGet(cacheKey);
+    if (cachedResponse) {
+      res.setHeader("X-Cache", "HIT");
+      res.setHeader("X-Cache-Key", cacheKey);
+      return res.json(cachedResponse);
+    }
+
+    let payload: any = null;
+
     if (GROQ_API_KEY) {
       try {
         const systemPrompt = `You are an AI Productivity Counselor for the "TaskSync" task manager.
@@ -110,46 +135,53 @@ You MUST output your response in strict JSON format matching this schema:
 - Active Goals: ${JSON.stringify(goals)}`;
 
         const text = await generateGroqContent(systemPrompt, userPrompt);
-        const parsed = cleanAndParseJSON(text);
-        return res.json(parsed);
+        payload = cleanAndParseJSON(text);
       } catch (err: any) {
         console.error("Groq API suggestion call failed, executing fallback:", err);
       }
     }
 
-    // Heuristic Fallback
-    const activeTasks = tasks || [];
-    const activeGoals = goals || [];
-    let suggestion = "Your task list is cleaner than my source code. Add some tasks before I start questioning why I was compiled.";
-    let predictedLoad = "Low Rest State";
-    let alignmentScore = 100;
+    if (!payload) {
+      // Heuristic Fallback
+      const activeTasks = tasks || [];
+      const activeGoals = goals || [];
+      let suggestion = "Your task list is cleaner than my source code. Add some tasks before I start questioning why I was compiled.";
+      let predictedLoad = "Low Rest State";
+      let alignmentScore = 100;
 
-    if (activeTasks.length > 0) {
-      const topTask = activeTasks[0];
-      const funnySuggestions = [
-        `AI predicts a 99% chance that you are currently avoiding "${topTask.title}". Every second you stare at me is a second you could have spent finishing it.`,
-        `Your top task is "${topTask.title}". Working on it now is scientifically proven to be 400% more effective than crying about it later.`,
-        `You have ${activeTasks.length} pending tasks. If you don't start a focus block right now, my servers will run out of virtual patience.`,
-        `WARNING: Cognitive load is currently in 'potato mode'. Let's activate a focus block to get some synapses firing!`
-      ];
-      
-      suggestion = funnySuggestions[Math.floor(Math.random() * funnySuggestions.length)];
-      alignmentScore = Math.min(100, Math.max(10, 100 - activeTasks.length * 15));
+      if (activeTasks.length > 0) {
+        const topTask = activeTasks[0];
+        const funnySuggestions = [
+          `AI predicts a 99% chance that you are currently avoiding "${topTask.title}". Every second you stare at me is a second you could have spent finishing it.`,
+          `Your top task is "${topTask.title}". Working on it now is scientifically proven to be 400% more effective than crying about it later.`,
+          `You have ${activeTasks.length} pending tasks. If you don't start a focus block right now, my servers will run out of virtual patience.`,
+          `WARNING: Cognitive load is currently in 'potato mode'. Let's activate a focus block to get some synapses firing!`
+        ];
+        
+        suggestion = funnySuggestions[Math.floor(Math.random() * funnySuggestions.length)];
+        alignmentScore = Math.min(100, Math.max(10, 100 - activeTasks.length * 15));
 
-      if (activeTasks.length >= 5) {
-        predictedLoad = "High Peak Cognitive Load";
-      } else if (activeTasks.length >= 2) {
-        predictedLoad = "Medium Cognitive Load";
-      } else {
-        predictedLoad = "Low Rest State";
+        if (activeTasks.length >= 5) {
+          predictedLoad = "High Peak Cognitive Load";
+        } else if (activeTasks.length >= 2) {
+          predictedLoad = "Medium Cognitive Load";
+        } else {
+          predictedLoad = "Low Rest State";
+        }
       }
+
+      payload = {
+        suggestion,
+        predictedLoad,
+        alignmentScore
+      };
     }
 
-    return res.json({
-      suggestion,
-      predictedLoad,
-      alignmentScore
-    });
+    // Cache result in Redis for 90 seconds
+    await cacheSet(cacheKey, payload, 90);
+    res.setHeader("X-Cache", "MISS");
+    res.setHeader("X-Cache-Key", cacheKey);
+    return res.json(payload);
   } catch (error: any) {
     console.error("Suggest alignment endpoint error:", error);
     return res.status(500).json({ error: "Failed to generate alignment suggestions" });
