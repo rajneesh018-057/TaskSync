@@ -178,23 +178,51 @@ router.put("/profile", authenticateJWT as any, async (req: AuthenticatedRequest,
 // GOOGLE OAUTH ENDPOINTS
 // ==========================================
 
-const GOOGLE_REDIRECT_URI = (process.env.GOOGLE_REDIRECT_URI || "http://localhost:5050/api/auth/google/callback").replace(/([^:]\/)\/+/g, "$1");
+function getRedirectUri(req: any): string {
+  if (process.env.GOOGLE_REDIRECT_URI) {
+    return process.env.GOOGLE_REDIRECT_URI.replace(/([^:]\/)\/+/g, "$1");
+  }
+  const proto = req.headers["x-forwarded-proto"] || req.protocol || "http";
+  const host = req.headers["x-forwarded-host"] || req.get("host") || "localhost:5050";
+  return `${proto}://${host}/api/auth/google/callback`;
+}
 
 // 1. Redirect to Google's OAuth consent screen
 router.get("/google", (req: any, res: any) => {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.status(500).json({
+      error: "Google OAuth is not configured: GOOGLE_CLIENT_ID is missing from environment variables."
+    });
+  }
+
   const { flow, userId } = req.query;
 
-  // Dynamically detect client host from referer (defaults to localhost:5173)
-  let clientHost = "localhost:5173";
+  // Dynamically detect client host from referer, FRONTEND_URL, or request headers
+  let clientHost = "";
+  if (process.env.FRONTEND_URL) {
+    try {
+      clientHost = new URL(process.env.FRONTEND_URL).host;
+    } catch (_) {}
+  }
+
   const referer = req.headers.referer;
   if (referer) {
     try {
       const url = new URL(referer);
-      clientHost = url.host; // e.g. "localhost:5174"
+      clientHost = url.host;
     } catch (_) {}
   }
 
+  if (!clientHost && req.headers.host) {
+    clientHost = req.headers.host;
+  }
+
+  if (!clientHost) {
+    clientHost = "localhost:3001";
+  }
+
   const state = flow === "calendar" ? `calendar_${userId}_${clientHost}` : `login_${clientHost}`;
+  const redirectUri = getRedirectUri(req);
 
   const scopes = [
     "openid",
@@ -206,7 +234,7 @@ router.get("/google", (req: any, res: any) => {
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
     `response_type=code` +
     `&client_id=${process.env.GOOGLE_CLIENT_ID}` +
-    `&redirect_uri=${encodeURIComponent(GOOGLE_REDIRECT_URI)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&scope=${encodeURIComponent(scopes.join(" "))}` +
     `&access_type=offline` +
     `&prompt=consent` +
@@ -223,6 +251,14 @@ router.get("/google/callback", async (req: any, res: any) => {
     return res.status(400).send("Authorization code is missing");
   }
 
+  if (!process.env.GOOGLE_CLIENT_SECRET) {
+    return res.status(500).json({
+      error: "Google OAuth is not configured: GOOGLE_CLIENT_SECRET is missing from environment variables."
+    });
+  }
+
+  const redirectUri = getRedirectUri(req);
+
   try {
     // Exchange authorization code for tokens
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -232,7 +268,7 @@ router.get("/google/callback", async (req: any, res: any) => {
         code: code as string,
         client_id: process.env.GOOGLE_CLIENT_ID || "",
         client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
-        redirect_uri: GOOGLE_REDIRECT_URI,
+        redirect_uri: redirectUri,
         grant_type: "authorization_code"
       })
     });
