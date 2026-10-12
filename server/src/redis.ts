@@ -28,6 +28,7 @@ export function resolveRedisConfig(): {
   maskedUrl: string;
   isTls: boolean;
   prefix: string;
+  enabled: boolean;
 } {
   let rawUrl = process.env.REDIS_URL;
 
@@ -38,11 +39,20 @@ export function resolveRedisConfig(): {
     rawUrl = `rediss://default:${token}@${host}:6379`;
   }
 
-  // 2. Default to port 6379 (or configurable REDIS_HOST_PORT)
+  // 2. On Vercel or cloud serverless, do NOT default to localhost:6379 if no Redis URL is given
+  if (!rawUrl && (process.env.VERCEL || process.env.DISABLE_REDIS === "true")) {
+    return {
+      url: "",
+      maskedUrl: "in-memory",
+      isTls: false,
+      prefix: REDIS_KEY_PREFIX,
+      enabled: false,
+    };
+  }
+
+  // 3. For local development / Docker containers, default to local port 6379
   if (!rawUrl) {
     const hostPort = process.env.REDIS_HOST_PORT || "6379";
-    // In Docker Desktop standalone containers, 'localhost' refers to the container itself.
-    // 'host.docker.internal' connects directly to Redis running on the host machine.
     const isDocker = fs.existsSync("/.dockerenv");
     const defaultHost = isDocker ? "host.docker.internal" : "localhost";
     rawUrl = `redis://${defaultHost}:${hostPort}`;
@@ -67,19 +77,21 @@ export function resolveRedisConfig(): {
     maskedUrl,
     isTls,
     prefix: REDIS_KEY_PREFIX,
+    enabled: true,
   };
 }
 
-const { url: REDIS_URL, maskedUrl: MASKED_REDIS_URL, isTls: IS_TLS_REDIS } = resolveRedisConfig();
+const { url: REDIS_URL, maskedUrl: MASKED_REDIS_URL, isTls: IS_TLS_REDIS, enabled: IS_REDIS_ENABLED } = resolveRedisConfig();
 
 let isRedisConnected = false;
 let redisClient: RedisType | null = null;
 
-// In-memory fallback cache when Redis is temporarily unavailable or in local dev without Redis
+// In-memory fallback cache when Redis is disabled or unavailable
 const inMemoryCache = new Map<string, { value: any; expiry: number | null }>();
 
-try {
-  redisClient = new Redis(REDIS_URL, {
+if (IS_REDIS_ENABLED && REDIS_URL) {
+  try {
+    redisClient = new Redis(REDIS_URL, {
     maxRetriesPerRequest: 1,
     tls: IS_TLS_REDIS ? { rejectUnauthorized: false } : undefined,
     retryStrategy(times) {
@@ -124,6 +136,9 @@ try {
   console.warn("[Redis] Failed to initialize Redis client. Falling back to in-memory store.", error);
   redisClient = null;
   isRedisConnected = false;
+}
+} else {
+  console.log("[Redis] No external Redis URL configured. Operating in high-performance in-memory cache mode.");
 }
 
 /**

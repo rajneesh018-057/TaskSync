@@ -2,7 +2,7 @@ import { Queue, Worker, Job } from "bullmq";
 import Redis from "ioredis";
 import { resolveRedisConfig, REDIS_KEY_PREFIX } from "./redis";
 
-const { url: REDIS_URL, maskedUrl, isTls } = resolveRedisConfig();
+const { url: REDIS_URL, maskedUrl, isTls, enabled } = resolveRedisConfig();
 
 // Clean prefix without trailing colon for BullMQ namespace isolation
 const queuePrefix = `{${REDIS_KEY_PREFIX.replace(/:+$/, "") || "tasksync"}}`;
@@ -11,8 +11,9 @@ const queuePrefix = `{${REDIS_KEY_PREFIX.replace(/:+$/, "") || "tasksync"}}`;
 let bullRedisConnection: Redis | null = null;
 let isBullConnected = false;
 
-try {
-  bullRedisConnection = new Redis(REDIS_URL, {
+if (enabled && REDIS_URL) {
+  try {
+    bullRedisConnection = new Redis(REDIS_URL, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
     tls: isTls ? { rejectUnauthorized: false } : undefined,
@@ -33,8 +34,11 @@ try {
     console.warn(`[BullMQ] ⚠️ Connection issue (${errorMsg}). Queue operations will be deferred.`);
   });
 } catch (err: any) {
-  console.warn("[BullMQ] Failed to initialize Redis connection for queues:", err.message);
-  bullRedisConnection = null;
+    console.warn("[BullMQ] Failed to initialize Redis connection for queues:", err.message);
+    bullRedisConnection = null;
+  }
+} else {
+  console.log("[BullMQ] Background queue in deferred mode (No external Redis configured).");
 }
 
 export interface TaskJobData {
