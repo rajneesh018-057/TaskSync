@@ -1,0 +1,149 @@
+# ============================================================
+# TaskSync CI/CD Pipeline
+# Triggers on every push to main and on all pull requests
+# ============================================================
+name: TaskSync CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ──────────────────────────────────────────────
+  # STAGE 1: TypeScript Type Checking & Linting
+  # ──────────────────────────────────────────────
+  typecheck:
+    name: "🔍 Type Check"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Frontend Type Check ──
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: TypeScript Check (Frontend)
+        run: npx tsc --noEmit
+        working-directory: frontend
+
+      # ── Backend Type Check ──
+      - name: Install Backend Dependencies
+        run: npm ci
+        working-directory: server
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        working-directory: server
+
+      - name: TypeScript Check (Backend)
+        run: npx tsc --noEmit
+        working-directory: server
+
+  # ──────────────────────────────────────────────
+  # STAGE 2: Build Verification
+  # ──────────────────────────────────────────────
+  build:
+    name: "🔨 Build"
+    runs-on: ubuntu-latest
+    needs: typecheck
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # ── Build Frontend ──
+      - name: Install & Build Frontend
+        run: |
+          npm ci
+          npm run build
+        working-directory: frontend
+
+      # ── Build Backend ──
+      - name: Install & Build Backend
+        run: |
+          npm ci
+          npx prisma generate
+          npm run build
+        working-directory: server
+
+  # ──────────────────────────────────────────────
+  # STAGE 3: Docker Build Verification
+  # ──────────────────────────────────────────────
+  docker:
+    name: "🐳 Docker Build"
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Frontend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: tasksync-frontend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Backend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          push: false
+          tags: tasksync-server:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ──────────────────────────────────────────────
+  # STAGE 4: Deploy Gate (Only on push to main)
+  # ──────────────────────────────────────────────
+  deploy:
+    name: "🚀 Deploy"
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy Summary
+        run: |
+          echo "============================================="
+          echo "✅ All CI/CD stages passed successfully!"
+          echo "============================================="
+          echo "🚀 TaskSync is ready for production deployment"
+          echo ""
+          echo "  Frontend:  tasksync-frontend:latest"
+          echo "  Backend:   tasksync-server:latest"
+          echo "  Redis:     redis:7-alpine"
+          echo "  Database:  PostgreSQL 15 (Supabase)"
+          echo ""
+          echo "  Commit:    ${{ github.sha }}"
+          echo "  Author:    ${{ github.actor }}"
+          echo "  Branch:    ${{ github.ref_name }}"
+          echo "============================================="
